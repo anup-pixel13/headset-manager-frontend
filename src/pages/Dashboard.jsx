@@ -50,11 +50,7 @@ const norm = (v) => String(v || '').trim().toLowerCase();
 // ✅ FIXED: only treat actual "on_hold" values as hold
 function isOnHold(a) {
   const hs = norm(a?.holdStatus);
-
-  // not on hold
   if (!hs || hs === 'none' || hs === 'no_hold' || hs === 'not_on_hold') return false;
-
-  // on hold
   return hs === 'on_hold' || hs === 'onhold' || hs === 'hold';
 }
 
@@ -64,12 +60,31 @@ function formatMoney(v) {
   return n.toFixed(2);
 }
 
+// Build a small page-number list with ellipses (e.g. 1 … 4 5 [6] 7 8 … 20)
+function buildPageList(current, total) {
+  const pages = new Set();
+  pages.add(1);
+  pages.add(total);
+  for (let i = current - 1; i <= current + 1; i++) {
+    if (i >= 1 && i <= total) pages.add(i);
+  }
+  const sorted = Array.from(pages).sort((a, b) => a - b);
+  const out = [];
+  let prev = 0;
+  for (const p of sorted) {
+    if (prev && p - prev > 1) out.push('...');
+    out.push(p);
+    prev = p;
+  }
+  return out;
+}
+
 export default function Dashboard() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
 
   // ============================================
-  // REFS FOR URL SYNC (smooth typing / no jank)
+  // REFS
   // ============================================
   const isInitialMountRef = useRef(true);
   const isSyncingFromUrlRef = useRef(false);
@@ -78,6 +93,9 @@ export default function Dashboard() {
   const isUserPageChangeRef = useRef(false);
   const didFilterOnceRef = useRef(false);
   const lastKeyRef = useRef('');
+
+  // Element refs for in-page scroll anchoring (no full-page jumps)
+  const tableCardRef = useRef(null);
 
   // ============================================
   // GET INITIAL STATE FROM URL
@@ -92,7 +110,8 @@ export default function Dashboard() {
     const page = toPositiveInt(searchParams.get('page'), DEFAULT_PAGE);
     const perPage = toPositiveInt(searchParams.get('perPage'), DEFAULT_ITEMS_PER_PAGE);
     return { startDate, endDate, search, processId, status, page, perPage };
-  }, [searchParams]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // ============================================
   // STATE
@@ -124,7 +143,8 @@ export default function Dashboard() {
   }, [initial.page]);
 
   // ============================================
-  // URL -> state
+  // URL -> state (only update if value really changed; prevents re-renders that
+  // can cause focus loss in inputs)
   // ============================================
   useEffect(() => {
     if (isInitialMountRef.current) {
@@ -144,12 +164,15 @@ export default function Dashboard() {
     const page = toPositiveInt(searchParams.get('page'), DEFAULT_PAGE);
     const perPage = toPositiveInt(searchParams.get('perPage'), DEFAULT_ITEMS_PER_PAGE);
 
-    setDateFilter({ startDate, endDate });
-    setSearchTerm(search);
-    setProcessId(process);
-    setAssignmentStatus(['active', 'inactive', 'all'].includes(status) ? status : DEFAULT_STATUS);
-    setCurrentPage(page);
-    setItemsPerPage(perPage);
+    setDateFilter((prev) =>
+      prev.startDate === startDate && prev.endDate === endDate ? prev : { startDate, endDate }
+    );
+    setSearchTerm((prev) => (prev === search ? prev : search));
+    setProcessId((prev) => (prev === process ? prev : process));
+    const safeStatus = ['active', 'inactive', 'all'].includes(status) ? status : DEFAULT_STATUS;
+    setAssignmentStatus((prev) => (prev === safeStatus ? prev : safeStatus));
+    setCurrentPage((prev) => (prev === page ? prev : page));
+    setItemsPerPage((prev) => (prev === perPage ? prev : perPage));
 
     prevPageRef.current = page;
 
@@ -220,7 +243,7 @@ export default function Dashboard() {
   // Reset page to 1 when filters change (not URL sync)
   // ============================================
   useEffect(() => {
-    const key = `${searchTerm}||${processId}||${assignmentStatus}||${dateFilter.startDate}||${dateFilter.endDate}`;
+    const key = `${debouncedSearchTerm}||${processId}||${assignmentStatus}||${dateFilter.startDate}||${dateFilter.endDate}`;
     const keyChanged = lastKeyRef.current !== key;
 
     if (didFilterOnceRef.current && keyChanged && !isSyncingFromUrlRef.current) {
@@ -230,7 +253,7 @@ export default function Dashboard() {
 
     didFilterOnceRef.current = true;
     lastKeyRef.current = key;
-  }, [searchTerm, processId, assignmentStatus, dateFilter.startDate, dateFilter.endDate]);
+  }, [debouncedSearchTerm, processId, assignmentStatus, dateFilter.startDate, dateFilter.endDate]);
 
   // ============================================
   // Fetch assignments (server paginated)
@@ -307,54 +330,52 @@ export default function Dashboard() {
     dateFilter.startDate !== DEFAULT_START ||
     dateFilter.endDate !== DEFAULT_TODAY;
 
-	const buildExportRow = (a) => {
-	  const hold = isOnHold(a);
-	  const state = a?.isActive === false ? 'inactive' : hold ? 'on_hold' : 'active';
+  const buildExportRow = (a) => {
+    const hold = isOnHold(a);
+    const state = a?.isActive === false ? 'inactive' : hold ? 'on_hold' : 'active';
 
-	  const tierDep = a?.tier?.depositAmount ?? '';
-	  const tierRef = a?.tier?.refundAmount ?? '';
-	  const paidDep = a?.deposit?.amount ?? '';
-	  const refundStatus = a?.deposit?.refundStatus ?? '';
+    const tierDep = a?.tier?.depositAmount ?? '';
+    const tierRef = a?.tier?.refundAmount ?? '';
+    const paidDep = a?.deposit?.amount ?? '';
+    const refundStatus = a?.deposit?.refundStatus ?? '';
 
-	  return {
-	    'Assignment ID': a.id,
-	    'Assignment Date': a.assignmentDate ? new Date(a.assignmentDate).toLocaleString() : '',
-	    State: state,
-	    'Hold Status': a.holdStatus || '',
-	    'Hold Reason': a.holdReason || '',
-	    'Hold Started At': a.holdStartedAt ? new Date(a.holdStartedAt).toLocaleString() : '',
-	    'Hold Ended At': a.holdEndedAt ? new Date(a.holdEndedAt).toLocaleString() : '',
-	    'Assignment Kind': a.assignmentKind || '',
-	    'Parent Assignment ID': a.parentAssignmentId || '',
+    return {
+      'Assignment ID': a.id,
+      'Assignment Date': a.assignmentDate ? new Date(a.assignmentDate).toLocaleString() : '',
+      State: state,
+      'Hold Status': a.holdStatus || '',
+      'Hold Reason': a.holdReason || '',
+      'Hold Started At': a.holdStartedAt ? new Date(a.holdStartedAt).toLocaleString() : '',
+      'Hold Ended At': a.holdEndedAt ? new Date(a.holdEndedAt).toLocaleString() : '',
+      'Assignment Kind': a.assignmentKind || '',
+      'Parent Assignment ID': a.parentAssignmentId || '',
 
-	    'Agent Name': a.agent?.name || '',
-	    'Employee ID': a.agent?.employeeId || '',
+      'Agent Name': a.agent?.name || '',
+      'Employee ID': a.agent?.employeeId || '',
 
-	    // current headset (temp headset if temp_replacement)
-	    'Headset Number (Current)': a.headset?.number || '',
-	    'Headset Type (Current)': formatHeadsetType(a.headset?.type),
+      'Headset Number (Current)': a.headset?.number || '',
+      'Headset Type (Current)': formatHeadsetType(a.headset?.type),
 
-	    // parent/original headset
-	    'Headset Number (Original)': a.originalHeadset?.number || '',
-	    'Headset Type (Original)': a.originalHeadset?.type ? formatHeadsetType(a.originalHeadset?.type) : '',
+      'Headset Number (Original)': a.originalHeadset?.number || '',
+      'Headset Type (Original)': a.originalHeadset?.type ? formatHeadsetType(a.originalHeadset?.type) : '',
 
-	    Process: a.process?.name || '',
+      Process: a.process?.name || '',
 
-	    'Tier Deposit Amount': formatMoney(tierDep),
-	    'Tier Refund Amount': formatMoney(tierRef),
-	    'Paid Deposit Amount': formatMoney(paidDep),
-	    'Refund Status': refundStatus,
+      'Tier Deposit Amount': formatMoney(tierDep),
+      'Tier Refund Amount': formatMoney(tierRef),
+      'Paid Deposit Amount': formatMoney(paidDep),
+      'Refund Status': refundStatus,
 
-	    Signatures: a.isCompleteForPdf ? 'Complete' : 'Pending',
-	    'Permanent ID': a.hasPermanentEmployeeId ? 'Yes' : 'No',
-	    'PDF Generated': a.depositPdf?.viewUrl ? 'Yes' : 'No',
+      Signatures: a.isCompleteForPdf ? 'Complete' : 'Pending',
+      'Permanent ID': a.hasPermanentEmployeeId ? 'Yes' : 'No',
+      'PDF Generated': a.depositPdf?.viewUrl ? 'Yes' : 'No',
 
-	    'Assignment Active?': a.isActive ? 'Yes' : 'No',
-	    'Assignment Verified?': a.isVerified ? 'Yes' : 'No',
+      'Assignment Active?': a.isActive ? 'Yes' : 'No',
+      'Assignment Verified?': a.isVerified ? 'Yes' : 'No',
 
-	    Remark: a.systemRemark || '',
-	  };
-	};
+      Remark: a.systemRemark || '',
+    };
+  };
 
   const exportCurrentPage = () => {
     const excelData = assignments.map(buildExportRow);
@@ -410,56 +431,45 @@ export default function Dashboard() {
   };
 
   // ============================================
-  // PDF actions
+  // PDF actions (kept — used by the per-row buttons if you re-add later)
   // ============================================
   const openUrl = (url) => {
     if (!url) return;
     window.open(url, '_blank', 'noopener,noreferrer');
   };
 
-  const handleGeneratePdf = async (assignmentId) => {
-    try {
-      setTableMsg({ type: '', text: '' });
-
-      setAssignments((prev) => prev.map((x) => (x.id === assignmentId ? { ...x, _pdfGenerating: true } : x)));
-
-      const res = await generateDepositFormPdf(assignmentId);
-
-      const viewUrl = res.data?.data?.viewUrl || null;
-      const downloadUrl = res.data?.data?.downloadUrl || null;
-      const fileName = res.data?.data?.fileName || null;
-      const filePath = res.data?.data?.filePath || null;
-
-      const depositPdf =
-        viewUrl || downloadUrl || filePath
-          ? {
-              viewUrl: viewUrl || filePath,
-              downloadUrl: downloadUrl || (filePath ? `${filePath}?download=1` : null),
-              fileName,
-              filePath,
-              generatedAt: res.data?.data?.generatedAt || null,
-              documentType: res.data?.data?.documentType || null,
-            }
-          : null;
-
-      setAssignments((prev) =>
-        prev.map((x) =>
-          x.id === assignmentId ? { ...x, depositPdf: depositPdf || x.depositPdf, _pdfGenerating: false } : x
-        )
-      );
-
-      if (depositPdf?.viewUrl) openUrl(depositPdf.viewUrl);
-
-      setTableMsg({ type: 'success', text: `PDF generated for Assignment #${assignmentId}.` });
-    } catch (e) {
-      console.error(e);
-      setAssignments((prev) => prev.map((x) => (x.id === assignmentId ? { ...x, _pdfGenerating: false } : x)));
-      setTableMsg({
-        type: 'error',
-        text: e?.response?.data?.message || 'Failed to generate deposit PDF.',
-      });
-    }
+  // ============================================
+  // Pagination scroll helpers
+  // ============================================
+  const scrollToCardTop = () => {
+    const el = tableCardRef.current;
+    if (!el) return;
+    const top = el.getBoundingClientRect().top + window.scrollY - 12; // small offset, not at very top
+    window.scrollTo({ top, left: 0, behavior: 'smooth' });
   };
+
+  const scrollToCardBottom = () => {
+    const el = tableCardRef.current;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    const bottom = rect.bottom + window.scrollY - window.innerHeight + 12;
+    window.scrollTo({ top: Math.max(0, bottom), left: 0, behavior: 'smooth' });
+  };
+
+  const goToPage = (target, anchor = 'top') => {
+    if (target < 1 || target > totalPages || target === currentPage) return;
+    isUserPageChangeRef.current = true;
+    setCurrentPage(target);
+    // Wait a tick so the new page mounts before we scroll
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        if (anchor === 'bottom') scrollToCardBottom();
+        else scrollToCardTop();
+      });
+    });
+  };
+
+  const pageList = useMemo(() => buildPageList(currentPage, totalPages), [currentPage, totalPages]);
 
   // ============================================
   // Tiles
@@ -498,6 +508,9 @@ export default function Dashboard() {
   ];
 
   const loading = statsLoading || tableLoading;
+
+  // void openUrl to keep it referenced in lint if PDFs are reintroduced later
+  void openUrl;
 
   return (
     <div className="dash-container">
@@ -569,31 +582,23 @@ export default function Dashboard() {
               <button className="dash-action-btn" onClick={() => navigate('/create-agent')} type="button">
                 <i className="bi bi-person-badge" /> Create Agent
               </button>
-              <button className="dash-action-btn" onClick={() => navigate('/yjacks')} type="button">
-                <i className="bi bi-usb-plug" /> Y-Jacks
+
+              <button className="dash-action-btn" onClick={() => navigate('/agents')} type="button">
+                <i className="bi bi-people" /> View All Agents
               </button>
 
-              <button className="dash-action-btn" onClick={() => navigate('/transfers')} type="button">
-                <i className="bi bi-arrow-left-right" /> Transfers
-              </button>
               <button className="dash-action-btn" onClick={() => navigate('/process-change')} type="button">
                 <i className="bi bi-shuffle" /> Process Change
               </button>
               <button className="dash-action-btn" onClick={() => navigate('/repairs')} type="button">
                 <i className="bi bi-tools" /> Send for Repair
               </button>
-              <button className="dash-action-btn" onClick={() => navigate('/deposits')} type="button">
-                <i className="bi bi-cash-stack" /> Deposits
-              </button>
               <button className="dash-action-btn" onClick={() => navigate('/refunds')} type="button">
                 <i className="bi bi-arrow-repeat" /> Refunds
               </button>
-              <button className="dash-action-btn" onClick={() => navigate('/pdf-documents')} type="button">
-                <i className="bi bi-file-earmark-pdf" /> All PDFs
-              </button>
             </div>
 
-            <div className="dash-table-card">
+            <div className="dash-table-card" ref={tableCardRef}>
               <div className="dash-table-top">
                 <div className="dash-table-title">
                   <h2>Assignments (Date Range)</h2>
@@ -608,6 +613,17 @@ export default function Dashboard() {
                       onChange={(e) => setSearchTerm(e.target.value)}
                       placeholder="Search name / headset / employee id..."
                     />
+                    {searchTerm && (
+                      <button
+                        type="button"
+                        className="dash-search-clear"
+                        onClick={() => setSearchTerm('')}
+                        title="Clear search"
+                        aria-label="Clear search"
+                      >
+                        <i className="bi bi-x-lg" />
+                      </button>
+                    )}
                   </div>
 
                   <select
@@ -687,136 +703,94 @@ export default function Dashboard() {
               {tableMsg.text && <div className={`dash-table-alert ${tableMsg.type}`}>{tableMsg.text}</div>}
 
               <div className="dash-table-wrap">
-			  <div className="dash-table-wrap">
-			    <table className="dash-table">
-			      <thead>
-			        <tr>
-			          <th>ID</th>
-			          <th>Date</th>
-			          <th>Agent</th>
-			          <th>Emp ID</th>
+                <table className="dash-table">
+                  <thead>
+                    <tr>
+                      <th>ID</th>
+                      <th>Date</th>
+                      <th>Agent</th>
+                      <th>Emp ID</th>
 
-			          <th>Kind</th>
-			          <th>Headset (Current)</th>
-			          <th>Original Headset</th>
+                      <th>Kind</th>
+                      <th>Headset (Current)</th>
+                      <th>Original Headset</th>
 
-			          <th>Type</th>
-			          <th>Process</th>
-			          <th>State</th>
-			          <th>Remark</th>
-			          <th>PDF Actions</th>
-			        </tr>
-			      </thead>
+                      <th>Type</th>
+                      <th>Process</th>
+                      <th>State</th>
 
-			      <tbody>
-			        {assignments.map((a) => {
-			          const pdfExists = !!a.depositPdf?.viewUrl;
-			          const isGenerating = !!a._pdfGenerating;
+                      <th>Verified</th>
+                      <th>Tier Dep</th>
+                      <th>Tier Ref</th>
+                      <th>Paid Dep</th>
 
-			          const hold = isOnHold(a);
-			          const inactive = a?.isActive === false;
+                      <th>Remark</th>
+                    </tr>
+                  </thead>
 
-			          const generateDisabled = !a.canGenerateDepositPdf || pdfExists || isGenerating;
-			          const viewDisabled = !pdfExists;
-			          const downloadDisabled = !pdfExists;
+                  <tbody>
+                    {assignments.map((a) => {
+                      const hold = isOnHold(a);
+                      const inactive = a?.isActive === false;
+                      const rowClass = `${inactive ? 'dash-row-inactive' : ''} ${hold ? 'dash-row-hold' : ''}`.trim();
 
-			          const rowClass = `${inactive ? 'dash-row-inactive' : ''} ${hold ? 'dash-row-hold' : ''}`.trim();
+                      return (
+                        <tr key={a.id} className={rowClass}>
+                          <td>#{a.id}</td>
+                          <td>{a.assignmentDate ? new Date(a.assignmentDate).toLocaleString() : 'N/A'}</td>
+                          <td>{a.agent?.name || 'N/A'}</td>
+                          <td>{a.agent?.employeeId || 'N/A'}</td>
 
-			          const generateTitle = pdfExists
-			            ? 'PDF already generated'
-			            : !a.canGenerateDepositPdf
-			              ? !a.hasPermanentEmployeeId
-			                ? 'Update permanent employee ID first (AIPL...)'
-			                : 'Collect signatures first'
-			              : 'Generate PDF';
+                          <td style={{ fontWeight: 900 }}>
+                            {a.assignmentKind === 'temp_replacement' ? 'Temp' : 'Permanent'}
+                          </td>
 
-			          return (
-			            <tr key={a.id} className={rowClass}>
-			              <td>#{a.id}</td>
-			              <td>{a.assignmentDate ? new Date(a.assignmentDate).toLocaleString() : 'N/A'}</td>
-			              <td>{a.agent?.name || 'N/A'}</td>
-			              <td>{a.agent?.employeeId || 'N/A'}</td>
+                          <td>{a.headset?.number || 'N/A'}</td>
 
-			              <td style={{ fontWeight: 900 }}>
-			                {a.assignmentKind === 'temp_replacement' ? 'Temp' : 'Permanent'}
-			              </td>
+                          <td>
+                            {a.originalHeadset?.number ? (
+                              <span title={`Original headset type: ${a.originalHeadset?.type || ''}`}>
+                                {a.originalHeadset.number}
+                              </span>
+                            ) : (
+                              '—'
+                            )}
+                          </td>
 
-			              <td>{a.headset?.number || 'N/A'}</td>
+                          <td>{formatHeadsetType(a.headset?.type)}</td>
+                          <td>{a.process?.name || 'N/A'}</td>
 
-			              <td>
-			                {a.originalHeadset?.number ? (
-			                  <span title={`Original headset type: ${a.originalHeadset?.type || ''}`}>
-			                    {a.originalHeadset.number}
-			                  </span>
-			                ) : (
-			                  '—'
-			                )}
-			              </td>
+                          <td>
+                            {inactive ? (
+                              <span className="dash-pill bad">Inactive</span>
+                            ) : hold ? (
+                              <span className="dash-pill warn">On Hold</span>
+                            ) : (
+                              <span className="dash-pill ok">Active</span>
+                            )}
+                          </td>
 
-			              <td>{formatHeadsetType(a.headset?.type)}</td>
-			              <td>{a.process?.name || 'N/A'}</td>
+                          <td>{a.isVerified ? 'Yes' : 'No'}</td>
+                          <td>{a?.tier?.depositAmount != null ? formatMoney(a.tier.depositAmount) : '—'}</td>
+                          <td>{a?.tier?.refundAmount != null ? formatMoney(a.tier.refundAmount) : '—'}</td>
+                          <td>{a?.deposit?.amount != null ? formatMoney(a.deposit.amount) : '—'}</td>
 
-			              <td>
-			                {inactive ? (
-			                  <span className="dash-pill bad">Inactive</span>
-			                ) : hold ? (
-			                  <span className="dash-pill warn">On Hold</span>
-			                ) : (
-			                  <span className="dash-pill ok">Active</span>
-			                )}
-			              </td>
+                          <td style={{ maxWidth: 320 }}>
+                            <span title={a.systemRemark || ''}>{a.systemRemark || '—'}</span>
+                          </td>
+                        </tr>
+                      );
+                    })}
 
-			              <td style={{ maxWidth: 320 }}>
-			                <span title={a.systemRemark || ''}>{a.systemRemark || '—'}</span>
-			              </td>
-
-			              <td>
-			                <div className="dash-pdf-actions">
-			                  <button
-			                    type="button"
-			                    className="dash-row-btn pdf-generate"
-			                    disabled={generateDisabled}
-			                    title={generateTitle}
-			                    onClick={() => handleGeneratePdf(a.id)}
-			                  >
-			                    {isGenerating ? 'Generating...' : 'Generate'}
-			                  </button>
-
-			                  <button
-			                    type="button"
-			                    className="dash-row-btn pdf-view"
-			                    disabled={viewDisabled}
-			                    title={viewDisabled ? 'Generate PDF first' : 'View PDF'}
-			                    onClick={() => openUrl(a.depositPdf?.viewUrl)}
-			                  >
-			                    View
-			                  </button>
-
-			                  <button
-			                    type="button"
-			                    className="dash-row-btn pdf-download"
-			                    disabled={downloadDisabled}
-			                    title={downloadDisabled ? 'Generate PDF first' : 'Download PDF'}
-			                    onClick={() => openUrl(a.depositPdf?.downloadUrl)}
-			                  >
-			                    Download
-			                  </button>
-			                </div>
-			              </td>
-			            </tr>
-			          );
-			        })}
-
-			        {assignments.length === 0 && (
-			          <tr>
-			            <td colSpan={12} style={{ textAlign: 'center', padding: 20 }}>
-			              No assignments found
-			            </td>
-			          </tr>
-			        )}
-			      </tbody>
-			    </table>
-			  </div>
+                    {assignments.length === 0 && (
+                      <tr>
+                        <td colSpan={15} style={{ textAlign: 'center', padding: 20 }}>
+                          No assignments found
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
               </div>
 
               {totalPages > 1 && (
@@ -824,27 +798,38 @@ export default function Dashboard() {
                   <button
                     className="dash-page-btn"
                     type="button"
-                    onClick={() => {
-                      isUserPageChangeRef.current = true;
-                      setCurrentPage((p) => Math.max(1, p - 1));
-                    }}
+                    onClick={() => goToPage(currentPage - 1, 'bottom')}
                     disabled={currentPage === 1}
+                    title="Previous page"
                   >
                     <i className="bi bi-chevron-left" /> Prev
                   </button>
 
-                  <span className="dash-page-text">
-                    Page <strong>{currentPage}</strong> of <strong>{totalPages}</strong>
-                  </span>
+                  {pageList.map((p, idx) =>
+                    p === '...' ? (
+                      <span key={`e-${idx}`} className="dash-page-ellipsis">
+                        …
+                      </span>
+                    ) : (
+                      <button
+                        key={p}
+                        type="button"
+                        className={`dash-page-btn dash-page-num ${p === currentPage ? 'active' : ''}`}
+                        onClick={() => goToPage(p, 'top')}
+                        disabled={p === currentPage}
+                        title={`Go to page ${p}`}
+                      >
+                        {p}
+                      </button>
+                    )
+                  )}
 
                   <button
                     className="dash-page-btn"
                     type="button"
-                    onClick={() => {
-                      isUserPageChangeRef.current = true;
-                      setCurrentPage((p) => Math.min(totalPages, p + 1));
-                    }}
+                    onClick={() => goToPage(currentPage + 1, 'top')}
                     disabled={currentPage === totalPages}
+                    title="Next page"
                   >
                     Next <i className="bi bi-chevron-right" />
                   </button>
