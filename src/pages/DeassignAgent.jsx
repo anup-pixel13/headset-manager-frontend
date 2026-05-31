@@ -118,6 +118,21 @@ export default function DeassignAgent() {
     }
   };
 
+  const fmtMoney = (n) => {
+    const x = Number(n);
+    if (!Number.isFinite(x)) return '—';
+    return x.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  };
+
+  const expectedRefund = (() => {
+    if (!current) return null;
+    // If tier is configured, prefer it; else fall back to defaults.refundAmount
+    const tier = current?.tier?.refundAmount;
+    if (tier !== null && tier !== undefined && tier !== '') return Number(tier);
+    const def = data?.defaults?.refundAmount;
+    return def !== null && def !== undefined && def !== '' ? Number(def) : null;
+  })();
+
   return (
     <div className="dash-container">
       <div className="container dash-content">
@@ -156,10 +171,18 @@ export default function DeassignAgent() {
               <div className="dash-actions-card" style={{ textAlign: 'left' }}>
                 <h3 style={{ margin: 0, fontSize: 16 }}>Agent</h3>
                 <div style={{ marginTop: 6 }}>
-                  <div><strong>Name:</strong> {agent?.name}</div>
-                  <div><strong>Employee ID:</strong> {agent?.employeeId || '—'}</div>
-                  <div><strong>Status:</strong> {agent?.status || '—'}</div>
-                  <div><strong>Login Active:</strong> {agent?.userIsActive ? 'Yes' : 'No'}</div>
+                  <div>
+                    <strong>Name:</strong> {agent?.name}
+                  </div>
+                  <div>
+                    <strong>Employee ID:</strong> {agent?.employeeId || '—'}
+                  </div>
+                  <div>
+                    <strong>Status:</strong> {agent?.status || '—'}
+                  </div>
+                  <div>
+                    <strong>Login Active:</strong> {agent?.userIsActive ? 'Yes' : 'No'}
+                  </div>
                 </div>
               </div>
 
@@ -167,10 +190,18 @@ export default function DeassignAgent() {
                 <h3 style={{ margin: 0, fontSize: 16 }}>Current Assignment</h3>
                 {current ? (
                   <div style={{ marginTop: 6 }}>
-                    <div><strong>Assignment ID:</strong> #{current.assignmentId}</div>
-                    <div><strong>Headset:</strong> {current.headset?.headsetNumber}</div>
-                    <div><strong>Type:</strong> {formatHeadsetType(current.headset?.headsetType)}</div>
-                    <div><strong>Tier Refund:</strong> {current.tier?.refundAmount ?? '—'}</div>
+                    <div>
+                      <strong>Assignment ID:</strong> #{current.assignmentId}
+                    </div>
+                    <div>
+                      <strong>Headset:</strong> {current.headset?.headsetNumber}
+                    </div>
+                    <div>
+                      <strong>Type:</strong> {formatHeadsetType(current.headset?.headsetType)}
+                    </div>
+                    <div>
+                      <strong>Tier Refund:</strong> {current.tier?.refundAmount ?? '—'}
+                    </div>
                   </div>
                 ) : (
                   <div style={{ marginTop: 6 }}>No active assignment.</div>
@@ -178,15 +209,47 @@ export default function DeassignAgent() {
               </div>
             </div>
 
+            {/* always-visible hint */}
+            <div className="dash-actions-card" style={{ textAlign: 'left', marginBottom: 14 }}>
+              <h3 style={{ margin: 0, fontSize: 16 }}>
+                <i className="bi bi-info-circle" /> Refund Hint
+              </h3>
+              {current ? (
+                <div style={{ marginTop: 8, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                  <div>
+                    <div style={{ opacity: 0.85 }}>
+                      <strong>Headset Type (raw):</strong> {current?.headset?.headsetType || '—'}
+                    </div>
+                    <div style={{ opacity: 0.85 }}>
+                      <strong>Tier Refund (configured):</strong> {current?.tier?.refundAmount ?? '—'}
+                    </div>
+                    <div style={{ opacity: 0.85 }}>
+                      <strong>Tier Deposit:</strong> {current?.tier?.depositAmount ?? '—'}
+                    </div>
+                  </div>
+
+                  <div>
+                    <div style={{ opacity: 0.85 }}>
+                      <strong>Paid Deposit:</strong> {current?.deposit?.paidDeposit ?? '—'}
+                    </div>
+                    <div style={{ opacity: 0.85 }}>
+                      <strong>Expected Refund:</strong> {expectedRefund === null ? '—' : fmtMoney(expectedRefund)}
+                    </div>
+                    <div style={{ opacity: 0.85 }}>
+                      <strong>Note:</strong> A refund request will be created after De‑Assign.
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div style={{ marginTop: 8, opacity: 0.85 }}>No active assignment found for this agent.</div>
+              )}
+            </div>
+
             <form onSubmit={submit}>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
                 <div>
                   <label style={{ display: 'block', marginBottom: 6 }}>Reason *</label>
-                  <select
-                    className="dash-select"
-                    value={form.reason}
-                    onChange={(e) => onChange('reason', e.target.value)}
-                  >
+                  <select className="dash-select" value={form.reason} onChange={(e) => onChange('reason', e.target.value)}>
                     {(data.reasons || []).map((r) => (
                       <option key={r} value={r}>
                         {r}
