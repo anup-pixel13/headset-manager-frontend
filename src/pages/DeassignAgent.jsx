@@ -33,6 +33,7 @@ export default function DeassignAgent() {
 
   const agent = data?.agent || null;
   const current = data?.current || null;
+  const refundBasis = data?.refundBasis || null;
 
   useEffect(() => {
     (async () => {
@@ -124,13 +125,37 @@ export default function DeassignAgent() {
     return x.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   };
 
+  // ✅ Refund basis rule: if backend returns refundBasis (ever_enc), use it for expected refund/deposit basis.
+  const refundBasisTierRefund = refundBasis?.tier?.refundAmount;
+  const refundBasisTierDeposit = refundBasis?.tier?.depositAmount;
+  const refundBasisPaidDeposit = refundBasis?.deposit?.paidDeposit;
+
   const expectedRefund = (() => {
+    // 1) refundBasis tier (ever_enc)
+    if (refundBasisTierRefund !== null && refundBasisTierRefund !== undefined && refundBasisTierRefund !== '') {
+      return Number(refundBasisTierRefund);
+    }
+
+    // 2) current tier
     if (!current) return null;
-    // If tier is configured, prefer it; else fall back to defaults.refundAmount
     const tier = current?.tier?.refundAmount;
     if (tier !== null && tier !== undefined && tier !== '') return Number(tier);
+
+    // 3) fallback defaults
     const def = data?.defaults?.refundAmount;
     return def !== null && def !== undefined && def !== '' ? Number(def) : null;
+  })();
+
+  const depositBasis = (() => {
+    // Prefer actual paid deposit from basis assignment, else its tier deposit, else current paid deposit, else current tier deposit.
+    const candidates = [refundBasisPaidDeposit, refundBasisTierDeposit, current?.deposit?.paidDeposit, current?.tier?.depositAmount];
+    for (const c of candidates) {
+      if (c !== null && c !== undefined && c !== '') {
+        const x = Number(c);
+        if (Number.isFinite(x)) return x;
+      }
+    }
+    return null;
   })();
 
   return (
@@ -218,22 +243,50 @@ export default function DeassignAgent() {
                 <div style={{ marginTop: 8, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
                   <div>
                     <div style={{ opacity: 0.85 }}>
-                      <strong>Headset Type (raw):</strong> {current?.headset?.headsetType || '—'}
+                      <strong>Current Headset Type (raw):</strong> {current?.headset?.headsetType || '—'}
                     </div>
                     <div style={{ opacity: 0.85 }}>
-                      <strong>Tier Refund (configured):</strong> {current?.tier?.refundAmount ?? '—'}
+                      <strong>Current Tier Refund:</strong> {current?.tier?.refundAmount ?? '—'}
                     </div>
                     <div style={{ opacity: 0.85 }}>
-                      <strong>Tier Deposit:</strong> {current?.tier?.depositAmount ?? '—'}
+                      <strong>Current Tier Deposit:</strong> {current?.tier?.depositAmount ?? '—'}
+                    </div>
+
+                    <div style={{ marginTop: 8, opacity: 0.85 }}>
+                      <strong>Refund Basis Rule:</strong> {refundBasis ? 'Agent had ENC earlier → refund based on ENC.' : 'No ENC history found.'}
                     </div>
                   </div>
 
                   <div>
-                    <div style={{ opacity: 0.85 }}>
-                      <strong>Paid Deposit:</strong> {current?.deposit?.paidDeposit ?? '—'}
+                    {refundBasis ? (
+                      <>
+                        <div style={{ opacity: 0.85 }}>
+                          <strong>Refund Basis Headset:</strong> {refundBasis?.headset?.headsetNumber || '—'}
+                        </div>
+                        <div style={{ opacity: 0.85 }}>
+                          <strong>Refund Basis Type:</strong> {formatHeadsetType(refundBasis?.headset?.headsetType)}
+                        </div>
+                        <div style={{ opacity: 0.85 }}>
+                          <strong>Refund Basis Paid Deposit:</strong> {refundBasisPaidDeposit ?? '—'}
+                        </div>
+                        <div style={{ opacity: 0.85 }}>
+                          <strong>Refund Basis Tier Deposit:</strong> {refundBasisTierDeposit ?? '—'}
+                        </div>
+                        <div style={{ opacity: 0.85 }}>
+                          <strong>Refund Basis Tier Refund:</strong> {refundBasisTierRefund ?? '—'}
+                        </div>
+                      </>
+                    ) : (
+                      <div style={{ opacity: 0.85 }}>
+                        <strong>Refund Basis:</strong> —
+                      </div>
+                    )}
+
+                    <div style={{ marginTop: 8, opacity: 0.85 }}>
+                      <strong>Deposit Basis (used):</strong> {depositBasis === null ? '—' : fmtMoney(depositBasis)}
                     </div>
                     <div style={{ opacity: 0.85 }}>
-                      <strong>Expected Refund:</strong> {expectedRefund === null ? '—' : fmtMoney(expectedRefund)}
+                      <strong>Expected Refund (used):</strong> {expectedRefund === null ? '—' : fmtMoney(expectedRefund)}
                     </div>
                     <div style={{ opacity: 0.85 }}>
                       <strong>Note:</strong> A refund request will be created after De‑Assign.
