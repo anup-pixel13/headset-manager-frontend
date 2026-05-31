@@ -14,8 +14,9 @@ const DEFAULT_ITEMS_PER_PAGE = 9;
 const ITEMS_PER_PAGE_OPTIONS = [6, 9, 12, 15, 30, 60, 90];
 
 function toPositiveInt(value, fallback) {
-  const n = parseInt(value ?? '', 10);
-  return Number.isFinite(n) && n > 0 ? n : fallback;
+  const n = Number(value);
+  if (!Number.isFinite(n) || n <= 0) return fallback;
+  return Math.floor(n);
 }
 
 const toIso = (d) =>
@@ -78,6 +79,21 @@ export default function Dashboard() {
   const isUserPageChangeRef = useRef(false);
   const didFilterOnceRef = useRef(false);
   const lastKeyRef = useRef('');
+
+  // ✅ Focus/scroll helpers
+  const assignmentCardRef = useRef(null);
+  const searchInputRef = useRef(null);
+  const shouldRestoreSearchFocusRef = useRef(false);
+
+  const scrollToAssignments = () => {
+    // Scroll slightly above the assignments container so the filters are visible.
+    const el = assignmentCardRef.current;
+    if (!el) return;
+
+    const top = el.getBoundingClientRect().top + window.scrollY;
+    const offset = 90; // header + breathing space
+    window.scrollTo({ top: Math.max(0, top - offset), behavior: 'smooth' });
+  };
 
   // ============================================
   // GET INITIAL STATE FROM URL
@@ -184,6 +200,14 @@ export default function Dashboard() {
 
       prevPageRef.current = currentPage;
       isUserPageChangeRef.current = false;
+
+      // ✅ If this change was triggered while typing in search, restore focus after URL sync.
+      if (shouldRestoreSearchFocusRef.current) {
+        queueMicrotask(() => {
+          // If the user is still on the page and the input exists, restore focus.
+          searchInputRef.current?.focus();
+        });
+      }
     }
   }, [
     dateFilter.startDate,
@@ -226,6 +250,9 @@ export default function Dashboard() {
     if (didFilterOnceRef.current && keyChanged && !isSyncingFromUrlRef.current) {
       isUserPageChangeRef.current = false;
       setCurrentPage(1);
+
+      // ✅ keep view on assignments when filters change
+      scrollToAssignments();
     }
 
     didFilterOnceRef.current = true;
@@ -241,53 +268,49 @@ export default function Dashboard() {
       is_active: statusToApiIsActive(assignmentStatus),
       start_date: dateFilter.startDate,
       end_date: dateFilter.endDate,
-      process_id: processId === 'all' ? '' : processId,
       page: currentPage,
       limit: itemsPerPage,
-      sort_by: 'assignment_date',
-      sort_order: 'DESC',
+      process_id: processId === 'all' ? '' : processId,
     });
 
     const payload = res.data;
-    const rows = payload?.data || [];
-    const total = payload?.pagination?.total ?? 0;
-
-    setAssignments(rows);
-    setAssignmentsTotal(total);
+    setAssignments(payload?.data || []);
+    setAssignmentsTotal(payload?.pagination?.total ?? 0);
   };
 
   useEffect(() => {
     (async () => {
       try {
         setTableLoading(true);
+        setTableMsg({ type: '', text: '' });
         await fetchAssignments();
       } catch (e) {
         console.error(e);
-        alert('Failed to load assignments');
         setAssignments([]);
         setAssignmentsTotal(0);
+        setTableMsg({ type: 'error', text: e?.response?.data?.message || 'Failed to load assignments.' });
       } finally {
         setTableLoading(false);
       }
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
-    debouncedSearchTerm,
-    processId,
-    assignmentStatus,
-    dateFilter.startDate,
-    dateFilter.endDate,
-    currentPage,
-    itemsPerPage,
-  ]);
+  }, [debouncedSearchTerm, assignmentStatus, processId, dateFilter.startDate, dateFilter.endDate, currentPage, itemsPerPage]);
+
+  // Restore focus on search after data refresh (only when change was from typing)
+  useEffect(() => {
+    if (!tableLoading && shouldRestoreSearchFocusRef.current) {
+      shouldRestoreSearchFocusRef.current = false;
+      searchInputRef.current?.focus();
+    }
+  }, [tableLoading]);
 
   const processOptions = useMemo(() => {
-    const map = new Map();
-    for (const a of assignments) {
-      if (a?.process?.id && a?.process?.name) map.set(String(a.process.id), a.process.name);
-    }
-    const arr = Array.from(map.entries()).map(([id, name]) => ({ id, name }));
-    arr.sort((x, y) => x.name.localeCompare(y.name));
+    const set = new Map();
+    assignments.forEach((a) => {
+      if (a?.processId && a?.processName) set.set(String(a.processId), a.processName);
+    });
+    const arr = Array.from(set.entries()).map(([id, name]) => ({ id, name }));
+    arr.sort((a, b) => String(a.name).localeCompare(String(b.name)));
     return [{ id: 'all', name: 'All Processes' }, ...arr];
   }, [assignments]);
 
@@ -307,67 +330,45 @@ export default function Dashboard() {
     dateFilter.startDate !== DEFAULT_START ||
     dateFilter.endDate !== DEFAULT_TODAY;
 
-	const buildExportRow = (a) => {
-	  const hold = isOnHold(a);
-	  const state = a?.isActive === false ? 'inactive' : hold ? 'on_hold' : 'active';
+  const buildExportRow = (a) => {
+    const hold = isOnHold(a);
+    const state = a?.isActive === false ? 'inactive' : hold ? 'on_hold' : 'active';
 
-	  const tierDep = a?.tier?.depositAmount ?? '';
-	  const tierRef = a?.tier?.refundAmount ?? '';
-	  const paidDep = a?.deposit?.amount ?? '';
-	  const refundStatus = a?.deposit?.refundStatus ?? '';
+    const tierDep = a?.tier?.depositAmount ?? '';
+    const tierRef = a?.tier?.refundAmount ?? '';
+    const paidDep = a?.deposit?.amount ?? '';
 
-	  return {
-	    'Assignment ID': a.id,
-	    'Assignment Date': a.assignmentDate ? new Date(a.assignmentDate).toLocaleString() : '',
-	    State: state,
-	    'Hold Status': a.holdStatus || '',
-	    'Hold Reason': a.holdReason || '',
-	    'Hold Started At': a.holdStartedAt ? new Date(a.holdStartedAt).toLocaleString() : '',
-	    'Hold Ended At': a.holdEndedAt ? new Date(a.holdEndedAt).toLocaleString() : '',
-	    'Assignment Kind': a.assignmentKind || '',
-	    'Parent Assignment ID': a.parentAssignmentId || '',
+    const name = a?.agentName ?? '';
+    const emp = a?.employeeId ?? '';
+    const headset = a?.headsetNumber ?? '';
+    const type = a?.headsetType ?? '';
+    const proc = a?.processName ?? '';
 
-	    'Agent Name': a.agent?.name || '',
-	    'Employee ID': a.agent?.employeeId || '',
+    const assignedAt = a?.assignmentDate ? new Date(a.assignmentDate).toLocaleString() : '';
+    const verified = a?.isVerified ? 'Yes' : 'No';
 
-	    // current headset (temp headset if temp_replacement)
-	    'Headset Number (Current)': a.headset?.number || '',
-	    'Headset Type (Current)': formatHeadsetType(a.headset?.type),
+    const holdStatus = a?.holdStatus ?? '';
 
-	    // parent/original headset
-	    'Headset Number (Original)': a.originalHeadset?.number || '',
-	    'Headset Type (Original)': a.originalHeadset?.type ? formatHeadsetType(a.originalHeadset?.type) : '',
-
-	    Process: a.process?.name || '',
-
-	    'Tier Deposit Amount': formatMoney(tierDep),
-	    'Tier Refund Amount': formatMoney(tierRef),
-	    'Paid Deposit Amount': formatMoney(paidDep),
-	    'Refund Status': refundStatus,
-
-	    Signatures: a.isCompleteForPdf ? 'Complete' : 'Pending',
-	    'Permanent ID': a.hasPermanentEmployeeId ? 'Yes' : 'No',
-	    'PDF Generated': a.depositPdf?.viewUrl ? 'Yes' : 'No',
-
-	    'Assignment Active?': a.isActive ? 'Yes' : 'No',
-	    'Assignment Verified?': a.isVerified ? 'Yes' : 'No',
-
-	    Remark: a.systemRemark || '',
-	  };
-	};
-
-  const exportCurrentPage = () => {
-    const excelData = assignments.map(buildExportRow);
-    const ws = XLSX.utils.json_to_sheet(excelData);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, `Page_${currentPage}`);
-    XLSX.writeFile(wb, `Assignments_Page_${currentPage}_${dateFilter.startDate}_to_${dateFilter.endDate}.xlsx`);
+    return {
+      'Agent Name': name,
+      'Employee ID': emp,
+      'Headset No': headset,
+      'Headset Type': type,
+      Process: proc,
+      'Assigned At': assignedAt,
+      Verified: verified,
+      Status: state,
+      'Hold Status': holdStatus,
+      'Tier Deposit': tierDep,
+      'Tier Refund': tierRef,
+      'Paid Deposit': paidDep,
+    };
   };
 
   const exportAllFiltered = async () => {
     try {
       const MAX_LIMIT = 100;
-      let page = 1;
+      let p = 1;
       let collected = [];
 
       while (true) {
@@ -376,42 +377,33 @@ export default function Dashboard() {
           is_active: statusToApiIsActive(assignmentStatus),
           start_date: dateFilter.startDate,
           end_date: dateFilter.endDate,
-          process_id: processId === 'all' ? '' : processId,
-          page,
+          page: p,
           limit: MAX_LIMIT,
-          sort_by: 'assignment_date',
-          sort_order: 'DESC',
+          process_id: processId === 'all' ? '' : processId,
         });
 
         const payload = res.data;
-        const rows = payload?.data || [];
-        collected = collected.concat(rows);
+        const chunk = payload?.data || [];
+        collected = collected.concat(chunk);
 
-        const total = payload?.pagination?.total ?? collected.length;
-        if (collected.length >= total) break;
+        const t = payload?.pagination?.total ?? collected.length;
+        if (collected.length >= t) break;
 
-        page += 1;
-        if (page > 200) break;
+        p += 1;
+        if (p > 200) break;
       }
 
-      const excelData = collected.map(buildExportRow);
-
+      const excelData = collected.map((a) => buildExportRow(a));
       const ws = XLSX.utils.json_to_sheet(excelData);
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, 'Assignments');
-
-      const procLabel = processId === 'all' ? 'All_Processes' : `Process_${processId}`;
-      const statusLabel = assignmentStatus;
-      XLSX.writeFile(wb, `Assignments_${statusLabel}_${procLabel}_${dateFilter.startDate}_to_${dateFilter.endDate}.xlsx`);
+      XLSX.writeFile(wb, `Assignments_${hasActiveFilters ? 'Filtered' : 'All'}.xlsx`);
     } catch (e) {
       console.error(e);
       alert('Export failed');
     }
   };
 
-  // ============================================
-  // PDF actions
-  // ============================================
   const openUrl = (url) => {
     if (!url) return;
     window.open(url, '_blank', 'noopener,noreferrer');
@@ -419,127 +411,98 @@ export default function Dashboard() {
 
   const handleGeneratePdf = async (assignmentId) => {
     try {
-      setTableMsg({ type: '', text: '' });
-
-      setAssignments((prev) => prev.map((x) => (x.id === assignmentId ? { ...x, _pdfGenerating: true } : x)));
-
-      const res = await generateDepositFormPdf(assignmentId);
-
-      const viewUrl = res.data?.data?.viewUrl || null;
-      const downloadUrl = res.data?.data?.downloadUrl || null;
-      const fileName = res.data?.data?.fileName || null;
-      const filePath = res.data?.data?.filePath || null;
-
-      const depositPdf =
-        viewUrl || downloadUrl || filePath
-          ? {
-              viewUrl: viewUrl || filePath,
-              downloadUrl: downloadUrl || (filePath ? `${filePath}?download=1` : null),
-              fileName,
-              filePath,
-              generatedAt: res.data?.data?.generatedAt || null,
-              documentType: res.data?.data?.documentType || null,
-            }
-          : null;
-
-      setAssignments((prev) =>
-        prev.map((x) =>
-          x.id === assignmentId ? { ...x, depositPdf: depositPdf || x.depositPdf, _pdfGenerating: false } : x
-        )
-      );
-
-      if (depositPdf?.viewUrl) openUrl(depositPdf.viewUrl);
-
-      setTableMsg({ type: 'success', text: `PDF generated for Assignment #${assignmentId}.` });
+      await generateDepositFormPdf(assignmentId);
+      alert('PDF generated successfully');
+      await fetchAssignments();
     } catch (e) {
       console.error(e);
-      setAssignments((prev) => prev.map((x) => (x.id === assignmentId ? { ...x, _pdfGenerating: false } : x)));
-      setTableMsg({
-        type: 'error',
-        text: e?.response?.data?.message || 'Failed to generate deposit PDF.',
-      });
+      alert(e?.response?.data?.message || 'PDF generation failed');
     }
   };
 
-  // ============================================
-  // Tiles
-  // ============================================
-  const tiles = [
-    {
-      label: 'In Stock',
-      value: stats?.inventory?.available ?? 0,
-      className: 'dash-tile stock',
-      onClick: () => navigate('/inventory?status=available'),
-    },
-    {
-      label: 'Assigned',
-      value: stats?.inventory?.assigned ?? 0,
-      className: 'dash-tile assigned',
-      onClick: () => navigate('/inventory?status=assigned'),
-    },
-    {
-      label: 'In Repair',
-      value: stats?.inventory?.inRepair ?? 0,
-      className: 'dash-tile repair',
-      onClick: () => navigate('/repairs'),
-    },
-    {
-      label: 'Pending Employee IDs',
-      value: stats?.alerts?.pendingEmployeeIds ?? 0,
-      className: 'dash-tile ids',
-      onClick: () => navigate('/pending?tab=ids'),
-    },
-    {
-      label: 'Pending Signatures',
-      value: stats?.alerts?.pendingSignatures ?? 0,
-      className: 'dash-tile verify',
-      onClick: () => navigate('/pending?tab=signatures'),
-    },
-  ];
+  // tiles
+  const tiles = useMemo(() => {
+    const v = stats || {};
 
-  const loading = statsLoading || tableLoading;
+    return [
+      {
+        label: 'Available',
+        value: v.available ?? 0,
+        className: 'dash-tile available',
+        onClick: () => navigate('/inventory?status=available'),
+      },
+      {
+        label: 'Assigned',
+        value: v.assigned ?? 0,
+        className: 'dash-tile assigned',
+        onClick: () => navigate('/inventory?status=assigned'),
+      },
+      {
+        label: 'Repair',
+        value: v.repair ?? 0,
+        className: 'dash-tile repair',
+        onClick: () => navigate('/inventory?status=repair'),
+      },
+      {
+        label: 'Lost',
+        value: v.lost ?? 0,
+        className: 'dash-tile lost',
+        onClick: () => navigate('/inventory?status=lost'),
+      },
+      {
+        label: 'Pending IDs',
+        value: v.pendingIds ?? 0,
+        className: 'dash-tile pending',
+        onClick: () => navigate('/pending?tab=ids'),
+      },
+      {
+        label: 'Pending Signatures',
+        value: v.pendingSignatures ?? 0,
+        className: 'dash-tile pending',
+        onClick: () => navigate('/pending?tab=signatures'),
+      },
+      {
+        label: 'On Hold',
+        value: v.onHold ?? 0,
+        className: 'dash-tile onhold',
+        onClick: () => navigate('/hold'),
+      },
+    ];
+  }, [navigate, stats]);
 
   return (
     <div className="dash-container">
       <div className="container dash-content">
         <div className="dash-header-card">
           <div className="dash-header-left">
-            <h1 className="dash-title">
-              <i className="bi bi-speedometer2" />
-              Dashboard
-            </h1>
-            <p className="dash-subtitle">Inventory + active assignments (date filtered)</p>
+            <h1 className="dash-title">Headset Manager</h1>
+            <p className="dash-subtitle">Dashboard</p>
           </div>
 
           <div className="dash-date-range">
-            <input
-              type="date"
-              value={dateFilter.startDate}
-              onChange={(e) => setDateFilter((p) => ({ ...p, startDate: e.target.value }))}
-              className="dash-date-input"
-            />
-            <span className="dash-date-sep">to</span>
-            <input
-              type="date"
-              value={dateFilter.endDate}
-              onChange={(e) => setDateFilter((p) => ({ ...p, endDate: e.target.value }))}
-              className="dash-date-input"
-            />
-            <button
-              className="dash-reset-btn"
-              type="button"
-              onClick={() => setDateFilter({ startDate: DEFAULT_START, endDate: DEFAULT_TODAY })}
-            >
-              <i className="bi bi-arrow-counterclockwise" />
-              Reset
-            </button>
+            <label>
+              Start:
+              <input
+                type="date"
+                value={dateFilter.startDate}
+                onChange={(e) => setDateFilter((p) => ({ ...p, startDate: e.target.value }))}
+              />
+            </label>
+            <label>
+              End:
+              <input
+                type="date"
+                value={dateFilter.endDate}
+                onChange={(e) => setDateFilter((p) => ({ ...p, endDate: e.target.value }))}
+              />
+            </label>
           </div>
         </div>
 
-        {loading ? (
+        {statsLoading ? (
           <div className="dash-loading">
             <div className="dash-spinner" />
-            <p>Loading dashboard...</p>
+            <p>Loading dashboard stats...</p>
           </div>
         ) : !stats ? (
           <div className="dash-empty">
@@ -569,31 +532,21 @@ export default function Dashboard() {
               <button className="dash-action-btn" onClick={() => navigate('/create-agent')} type="button">
                 <i className="bi bi-person-badge" /> Create Agent
               </button>
-              <button className="dash-action-btn" onClick={() => navigate('/yjacks')} type="button">
-                <i className="bi bi-usb-plug" /> Y-Jacks
-              </button>
 
-              <button className="dash-action-btn" onClick={() => navigate('/transfers')} type="button">
-                <i className="bi bi-arrow-left-right" /> Transfers
-              </button>
+              {/* Removed: Y-Jacks, Transfers, Deposits, All PDFs buttons (not needed on dashboard) */}
+
               <button className="dash-action-btn" onClick={() => navigate('/process-change')} type="button">
                 <i className="bi bi-shuffle" /> Process Change
               </button>
               <button className="dash-action-btn" onClick={() => navigate('/repairs')} type="button">
                 <i className="bi bi-tools" /> Send for Repair
               </button>
-              <button className="dash-action-btn" onClick={() => navigate('/deposits')} type="button">
-                <i className="bi bi-cash-stack" /> Deposits
-              </button>
               <button className="dash-action-btn" onClick={() => navigate('/refunds')} type="button">
                 <i className="bi bi-arrow-repeat" /> Refunds
               </button>
-              <button className="dash-action-btn" onClick={() => navigate('/pdf-documents')} type="button">
-                <i className="bi bi-file-earmark-pdf" /> All PDFs
-              </button>
             </div>
 
-            <div className="dash-table-card">
+            <div className="dash-table-card" ref={assignmentCardRef}>
               <div className="dash-table-top">
                 <div className="dash-table-title">
                   <h2>Assignments (Date Range)</h2>
@@ -604,8 +557,13 @@ export default function Dashboard() {
                   <div className="dash-search">
                     <i className="bi bi-search" />
                     <input
+                      ref={searchInputRef}
                       value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
+                      onChange={(e) => {
+                        // Mark that this update is from typing so we can restore focus after URL sync.
+                        shouldRestoreSearchFocusRef.current = true;
+                        setSearchTerm(e.target.value);
+                      }}
                       placeholder="Search name / headset / employee id..."
                     />
                   </div>
@@ -645,8 +603,7 @@ export default function Dashboard() {
                         : `Export all ${assignmentsTotal} assignments`
                     }
                   >
-                    <i className="bi bi-download" /> {hasActiveFilters ? 'Export Filtered' : 'Export All'} (
-                    {assignmentsTotal})
+                    <i className="bi bi-download" /> {hasActiveFilters ? 'Export Filtered' : 'Export All'} ({assignmentsTotal})
                   </button>
                 </div>
               </div>
@@ -665,191 +622,167 @@ export default function Dashboard() {
                       </option>
                     ))}
                   </select>
-
-                  <button
-                    className="dash-export-btn"
-                    style={{ background: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)' }}
-                    type="button"
-                    onClick={exportCurrentPage}
-                    disabled={assignments.length === 0}
-                    title={`Export ${assignments.length} rows from this page`}
-                  >
-                    <i className="bi bi-file-earmark" /> Export Page
-                  </button>
                 </div>
 
-                <div className="dash-counts">
-                  Total: <strong>{assignmentsTotal}</strong> | Page <strong>{currentPage}</strong> /{' '}
-                  <strong>{totalPages}</strong>
-                </div>
-              </div>
-
-              {tableMsg.text && <div className={`dash-table-alert ${tableMsg.type}`}>{tableMsg.text}</div>}
-
-              <div className="dash-table-wrap">
-			  <div className="dash-table-wrap">
-			    <table className="dash-table">
-			      <thead>
-			        <tr>
-			          <th>ID</th>
-			          <th>Date</th>
-			          <th>Agent</th>
-			          <th>Emp ID</th>
-
-			          <th>Kind</th>
-			          <th>Headset (Current)</th>
-			          <th>Original Headset</th>
-
-			          <th>Type</th>
-			          <th>Process</th>
-			          <th>State</th>
-			          <th>Remark</th>
-			          <th>PDF Actions</th>
-			        </tr>
-			      </thead>
-
-			      <tbody>
-			        {assignments.map((a) => {
-			          const pdfExists = !!a.depositPdf?.viewUrl;
-			          const isGenerating = !!a._pdfGenerating;
-
-			          const hold = isOnHold(a);
-			          const inactive = a?.isActive === false;
-
-			          const generateDisabled = !a.canGenerateDepositPdf || pdfExists || isGenerating;
-			          const viewDisabled = !pdfExists;
-			          const downloadDisabled = !pdfExists;
-
-			          const rowClass = `${inactive ? 'dash-row-inactive' : ''} ${hold ? 'dash-row-hold' : ''}`.trim();
-
-			          const generateTitle = pdfExists
-			            ? 'PDF already generated'
-			            : !a.canGenerateDepositPdf
-			              ? !a.hasPermanentEmployeeId
-			                ? 'Update permanent employee ID first (AIPL...)'
-			                : 'Collect signatures first'
-			              : 'Generate PDF';
-
-			          return (
-			            <tr key={a.id} className={rowClass}>
-			              <td>#{a.id}</td>
-			              <td>{a.assignmentDate ? new Date(a.assignmentDate).toLocaleString() : 'N/A'}</td>
-			              <td>{a.agent?.name || 'N/A'}</td>
-			              <td>{a.agent?.employeeId || 'N/A'}</td>
-
-			              <td style={{ fontWeight: 900 }}>
-			                {a.assignmentKind === 'temp_replacement' ? 'Temp' : 'Permanent'}
-			              </td>
-
-			              <td>{a.headset?.number || 'N/A'}</td>
-
-			              <td>
-			                {a.originalHeadset?.number ? (
-			                  <span title={`Original headset type: ${a.originalHeadset?.type || ''}`}>
-			                    {a.originalHeadset.number}
-			                  </span>
-			                ) : (
-			                  '—'
-			                )}
-			              </td>
-
-			              <td>{formatHeadsetType(a.headset?.type)}</td>
-			              <td>{a.process?.name || 'N/A'}</td>
-
-			              <td>
-			                {inactive ? (
-			                  <span className="dash-pill bad">Inactive</span>
-			                ) : hold ? (
-			                  <span className="dash-pill warn">On Hold</span>
-			                ) : (
-			                  <span className="dash-pill ok">Active</span>
-			                )}
-			              </td>
-
-			              <td style={{ maxWidth: 320 }}>
-			                <span title={a.systemRemark || ''}>{a.systemRemark || '—'}</span>
-			              </td>
-
-			              <td>
-			                <div className="dash-pdf-actions">
-			                  <button
-			                    type="button"
-			                    className="dash-row-btn pdf-generate"
-			                    disabled={generateDisabled}
-			                    title={generateTitle}
-			                    onClick={() => handleGeneratePdf(a.id)}
-			                  >
-			                    {isGenerating ? 'Generating...' : 'Generate'}
-			                  </button>
-
-			                  <button
-			                    type="button"
-			                    className="dash-row-btn pdf-view"
-			                    disabled={viewDisabled}
-			                    title={viewDisabled ? 'Generate PDF first' : 'View PDF'}
-			                    onClick={() => openUrl(a.depositPdf?.viewUrl)}
-			                  >
-			                    View
-			                  </button>
-
-			                  <button
-			                    type="button"
-			                    className="dash-row-btn pdf-download"
-			                    disabled={downloadDisabled}
-			                    title={downloadDisabled ? 'Generate PDF first' : 'Download PDF'}
-			                    onClick={() => openUrl(a.depositPdf?.downloadUrl)}
-			                  >
-			                    Download
-			                  </button>
-			                </div>
-			              </td>
-			            </tr>
-			          );
-			        })}
-
-			        {assignments.length === 0 && (
-			          <tr>
-			            <td colSpan={12} style={{ textAlign: 'center', padding: 20 }}>
-			              No assignments found
-			            </td>
-			          </tr>
-			        )}
-			      </tbody>
-			    </table>
-			  </div>
-              </div>
-
-              {totalPages > 1 && (
                 <div className="dash-pagination">
                   <button
-                    className="dash-page-btn"
+                    className="dash-reset-btn"
                     type="button"
+                    disabled={currentPage <= 1}
                     onClick={() => {
                       isUserPageChangeRef.current = true;
                       setCurrentPage((p) => Math.max(1, p - 1));
+                      scrollToAssignments();
                     }}
-                    disabled={currentPage === 1}
                   >
-                    <i className="bi bi-chevron-left" /> Prev
+                    Prev
                   </button>
 
-                  <span className="dash-page-text">
-                    Page <strong>{currentPage}</strong> of <strong>{totalPages}</strong>
+                  <span>
+                    Page <b>{currentPage}</b> / <b>{totalPages}</b>
                   </span>
 
                   <button
-                    className="dash-page-btn"
+                    className="dash-reset-btn"
                     type="button"
+                    disabled={currentPage >= totalPages}
                     onClick={() => {
                       isUserPageChangeRef.current = true;
                       setCurrentPage((p) => Math.min(totalPages, p + 1));
+                      scrollToAssignments();
                     }}
-                    disabled={currentPage === totalPages}
                   >
-                    Next <i className="bi bi-chevron-right" />
+                    Next
                   </button>
                 </div>
-              )}
+
+                {tableMsg.text && <div className={`dash-table-alert ${tableMsg.type}`}>{tableMsg.text}</div>}
+              </div>
+
+              {/* table */}
+              <div className="dash-table-wrap">
+                <table className="dash-table">
+                  <thead>
+                    <tr>
+                      <th>Agent</th>
+                      <th>Employee ID</th>
+                      <th>Process</th>
+                      <th>Headset</th>
+                      <th>Type</th>
+                      <th>Assigned</th>
+                      <th>Verified</th>
+                      <th>Status</th>
+                      <th>Tier Dep</th>
+                      <th>Tier Ref</th>
+                      <th>Paid Dep</th>
+                      <th>PDF</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {tableLoading ? (
+                      <tr>
+                        <td colSpan={13} style={{ textAlign: 'center', padding: 16 }}>
+                          Loading...
+                        </td>
+                      </tr>
+                    ) : (
+                      assignments.map((a) => {
+                        const hold = isOnHold(a);
+                        const state = a?.isActive === false ? 'inactive' : hold ? 'on_hold' : 'active';
+
+                        const isGenerating = !!a?.depositPdf?.isGenerating;
+                        const generateDisabled = isGenerating;
+                        const generateTitle = isGenerating ? 'Generating...' : 'Generate PDF';
+
+                        const viewDisabled = !a?.depositPdf?.viewUrl;
+                        const downloadDisabled = !a?.depositPdf?.downloadUrl;
+
+                        return (
+                          <tr key={a.id} className={state === 'on_hold' ? 'row-onhold' : ''}>
+                            <td>{a.agentName}</td>
+                            <td>{a.employeeId}</td>
+                            <td>{a.processName}</td>
+                            <td>{a.headsetNumber}</td>
+                            <td>{formatHeadsetType(a.headsetType)}</td>
+                            <td>{a.assignmentDate ? new Date(a.assignmentDate).toLocaleString() : '—'}</td>
+                            <td>{a.isVerified ? 'Yes' : 'No'}</td>
+                            <td>
+                              {state === 'on_hold' ? 'On Hold' : a.isActive === false ? 'Inactive' : 'Active'}
+                              {hold && a?.holdStatus ? ` (${a.holdStatus})` : ''}
+                            </td>
+                            <td>{a?.tier?.depositAmount ?? '—'}</td>
+                            <td>{a?.tier?.refundAmount ?? '—'}</td>
+                            <td>{a?.deposit?.amount ?? '—'}</td>
+                            <td>
+                              <div className="dash-row-btns">
+                                <button
+                                  type="button"
+                                  className="dash-row-btn pdf-generate"
+                                  disabled={generateDisabled}
+                                  title={generateTitle}
+                                  onClick={() => handleGeneratePdf(a.id)}
+                                >
+                                  {isGenerating ? 'Generating...' : 'Generate'}
+                                </button>
+
+                                <button
+                                  type="button"
+                                  className="dash-row-btn pdf-view"
+                                  disabled={viewDisabled}
+                                  title={viewDisabled ? 'Generate PDF first' : 'View PDF'}
+                                  onClick={() => openUrl(a.depositPdf?.viewUrl)}
+                                >
+                                  View
+                                </button>
+
+                                <button
+                                  type="button"
+                                  className="dash-row-btn pdf-download"
+                                  disabled={downloadDisabled}
+                                  title={downloadDisabled ? 'Generate PDF first' : 'Download PDF'}
+                                  onClick={() => openUrl(a.depositPdf?.downloadUrl)}
+                                >
+                                  Download
+                                </button>
+                              </div>
+                            </td>
+                            <td>
+                              <div className="dash-row-btns">
+                                <button
+                                  type="button"
+                                  className="dash-row-btn"
+                                  onClick={() => navigate(`/agent/${a.agentId || a.agent_id || ''}`)}
+                                  disabled={!a.agentId && !a.agent_id}
+                                >
+                                  View
+                                </button>
+
+                                <button
+                                  type="button"
+                                  className="dash-row-btn danger"
+                                  onClick={() => navigate(`/deassign-agent/${a.agentId || a.agent_id || ''}`)}
+                                  disabled={!a.agentId && !a.agent_id}
+                                >
+                                  De‑Assign
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+
+                    {!tableLoading && assignments.length === 0 && (
+                      <tr>
+                        <td colSpan={13} style={{ textAlign: 'center', padding: 16 }}>
+                          No assignments found
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </>
         )}
