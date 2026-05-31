@@ -59,10 +59,9 @@ function isOnHold(a) {
   return hs === 'on_hold' || hs === 'onhold' || hs === 'hold';
 }
 
-function formatMoney(v) {
+function toCount(v) {
   const n = Number(v);
-  if (!Number.isFinite(n)) return '';
-  return n.toFixed(2);
+  return Number.isFinite(n) ? n : 0;
 }
 
 export default function Dashboard() {
@@ -307,7 +306,9 @@ export default function Dashboard() {
   const processOptions = useMemo(() => {
     const set = new Map();
     assignments.forEach((a) => {
-      if (a?.processId && a?.processName) set.set(String(a.processId), a.processName);
+      const id = a?.process?.id ?? a?.processId ?? a?.process_id;
+      const name = a?.process?.name ?? a?.processName ?? a?.process_name;
+      if (id && name) set.set(String(id), name);
     });
     const arr = Array.from(set.entries()).map(([id, name]) => ({ id, name }));
     arr.sort((a, b) => String(a.name).localeCompare(String(b.name)));
@@ -338,11 +339,11 @@ export default function Dashboard() {
     const tierRef = a?.tier?.refundAmount ?? '';
     const paidDep = a?.deposit?.amount ?? '';
 
-    const name = a?.agentName ?? '';
-    const emp = a?.employeeId ?? '';
-    const headset = a?.headsetNumber ?? '';
-    const type = a?.headsetType ?? '';
-    const proc = a?.processName ?? '';
+    const name = a?.agent?.name ?? a?.agentName ?? a?.agent_name ?? '';
+    const emp = a?.agent?.employeeId ?? a?.employeeId ?? a?.employee_id ?? '';
+    const headset = a?.headset?.number ?? a?.headsetNumber ?? a?.headset_number ?? '';
+    const type = a?.headset?.type ?? a?.headsetType ?? a?.headset_type ?? '';
+    const proc = a?.process?.name ?? a?.processName ?? a?.process_name ?? '';
 
     const assignedAt = a?.assignmentDate ? new Date(a.assignmentDate).toLocaleString() : '';
     const verified = a?.isVerified ? 'Yes' : 'No';
@@ -422,48 +423,49 @@ export default function Dashboard() {
 
   // tiles
   const tiles = useMemo(() => {
-    const v = stats || {};
+    const inventory = stats?.inventory || {};
+    const alerts = stats?.alerts || {};
 
     return [
       {
         label: 'Available',
-        value: v.available ?? 0,
+        value: toCount(inventory.available),
         className: 'dash-tile available',
         onClick: () => navigate('/inventory?status=available'),
       },
       {
         label: 'Assigned',
-        value: v.assigned ?? 0,
+        value: toCount(inventory.assigned),
         className: 'dash-tile assigned',
         onClick: () => navigate('/inventory?status=assigned'),
       },
       {
         label: 'Repair',
-        value: v.repair ?? 0,
+        value: toCount(inventory.inRepair),
         className: 'dash-tile repair',
         onClick: () => navigate('/inventory?status=repair'),
       },
       {
         label: 'Lost',
-        value: v.lost ?? 0,
+        value: toCount(inventory.lost),
         className: 'dash-tile lost',
         onClick: () => navigate('/inventory?status=lost'),
       },
       {
         label: 'Pending IDs',
-        value: v.pendingIds ?? 0,
+        value: toCount(alerts.pendingEmployeeIds),
         className: 'dash-tile pending',
         onClick: () => navigate('/pending?tab=ids'),
       },
       {
         label: 'Pending Signatures',
-        value: v.pendingSignatures ?? 0,
+        value: toCount(alerts.pendingSignatures),
         className: 'dash-tile pending',
         onClick: () => navigate('/pending?tab=signatures'),
       },
       {
         label: 'On Hold',
-        value: v.onHold ?? 0,
+        value: toCount(stats?.assignments?.onHold),
         className: 'dash-tile onhold',
         onClick: () => navigate('/hold'),
       },
@@ -690,6 +692,12 @@ export default function Dashboard() {
                       assignments.map((a) => {
                         const hold = isOnHold(a);
                         const state = a?.isActive === false ? 'inactive' : hold ? 'on_hold' : 'active';
+                        const agentName = a?.agent?.name ?? a?.agentName ?? a?.agent_name ?? '—';
+                        const employeeId = a?.agent?.employeeId ?? a?.employeeId ?? a?.employee_id ?? '—';
+                        const processName = a?.process?.name ?? a?.processName ?? a?.process_name ?? '—';
+                        const headsetNumber = a?.headset?.number ?? a?.headsetNumber ?? a?.headset_number ?? '—';
+                        const headsetType = a?.headset?.type ?? a?.headsetType ?? a?.headset_type ?? '';
+                        const agentId = a?.agent?.id ?? a?.agentId ?? a?.agent_id;
 
                         const isGenerating = !!a?.depositPdf?.isGenerating;
                         const generateDisabled = isGenerating;
@@ -700,11 +708,11 @@ export default function Dashboard() {
 
                         return (
                           <tr key={a.id} className={state === 'on_hold' ? 'row-onhold' : ''}>
-                            <td>{a.agentName}</td>
-                            <td>{a.employeeId}</td>
-                            <td>{a.processName}</td>
-                            <td>{a.headsetNumber}</td>
-                            <td>{formatHeadsetType(a.headsetType)}</td>
+                            <td>{agentName}</td>
+                            <td>{employeeId}</td>
+                            <td>{processName}</td>
+                            <td>{headsetNumber}</td>
+                            <td>{formatHeadsetType(headsetType)}</td>
                             <td>{a.assignmentDate ? new Date(a.assignmentDate).toLocaleString() : '—'}</td>
                             <td>{a.isVerified ? 'Yes' : 'No'}</td>
                             <td>
@@ -752,8 +760,8 @@ export default function Dashboard() {
                                 <button
                                   type="button"
                                   className="dash-row-btn"
-                                  onClick={() => navigate(`/agent/${a.agentId || a.agent_id || ''}`)}
-                                  disabled={!a.agentId && !a.agent_id}
+                                  onClick={() => navigate(`/agent/${agentId || ''}`)}
+                                  disabled={!agentId}
                                 >
                                   View
                                 </button>
@@ -761,8 +769,8 @@ export default function Dashboard() {
                                 <button
                                   type="button"
                                   className="dash-row-btn danger"
-                                  onClick={() => navigate(`/deassign-agent/${a.agentId || a.agent_id || ''}`)}
-                                  disabled={!a.agentId && !a.agent_id}
+                                  onClick={() => navigate(`/deassign-agent/${agentId || ''}`)}
+                                  disabled={!agentId}
                                 >
                                   De‑Assign
                                 </button>
