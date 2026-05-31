@@ -1,0 +1,86 @@
+/* ==========================================================
+   GLOBAL THEME (matches InterviewDashboard.css feel)
+   ========================================================== */
+
+:root {
+  /* Primary gradient palette */
+  --color-primary: #667eea;
+  --color-primary-dark: #764ba2;
+  --gradient-primary: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+
+  /* Status colors */
+  --color-success: #28a745;
+  --color-danger: #dc3545;
+  --color-warning: #ffc107;
+  --color-info: #3b82f6;
+
+  /* Surfaces */
+  --bg-card: rgba(255, 255, 255, 0.95);
+  --bg-card-border: rgba(255, 255, 255, 0.5);
+  --shadow-card: 0 10px 40px rgba(0, 0, 0, 0.3);
+  --shadow-soft: 0 8px 24px rgba(0, 0, 0, 0.2);
+
+  /* Text */
+  --text-dark: #2c3e50;
+  --text-muted: #6c757d;
+  --text-light: #94a3b8;
+
+  /* Layout */
+  --radius-card: 16px;
+  --radius-input: 12px;
+
+  /* Fonts */
+  --font-base: 'Trebuchet MS', Verdana, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html, body, #root {
+  margin: 0;
+  padding: 0;
+  font-family: var(--font-base);
+  color: var(--text-dark);
+  background: #f4f5fa;
+  min-height: 100vh;
+}
+
+a {
+  color: var(--color-primary);
+  text-decoration: none;
+}
+
+a:hover {
+  color: var(--color-primary-dark);
+}
+
+button {
+  font-family: var(--font-base);
+}
+
+/* Generic page container with same gradient feel as Interview module */
+.app-page {
+  min-height: 100vh;
+  background: var(--gradient-primary);
+  padding: 30px 20px;
+  position: relative;
+}
+
+.app-page::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: linear-gradient(135deg, rgba(102,126,234,0.5) 0%, rgba(118,75,162,0.5) 100%);
+  pointer-events: none;
+}
+
+.app-card {
+  position: relative;
+  background: var(--bg-card);
+  border: 2px solid var(--bg-card-border);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+  backdrop-filter: blur(20px);
+  padding: 30px;
+}

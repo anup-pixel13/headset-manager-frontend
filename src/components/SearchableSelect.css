@@ -1,0 +1,84 @@
+.ss-wrap {
+  position: relative;
+  width: 100%;
+}
+
+.ss-wrap.disabled {
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+.ss-input {
+  display: flex;
+  align-items: center;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 8px 10px;
+  background: #fff;
+}
+
+.ss-input.open {
+  border-color: #93c5fd;
+  box-shadow: 0 0 0 3px rgba(147, 197, 253, 0.4);
+}
+
+.ss-input input {
+  border: none;
+  outline: none;
+  width: 100%;
+  font-size: 14px;
+}
+
+.ss-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ss-clear {
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-size: 18px;
+  line-height: 1;
+  opacity: 0.7;
+}
+
+.ss-clear:hover {
+  opacity: 1;
+}
+
+.ss-caret {
+  opacity: 0.7;
+  font-size: 12px;
+}
+
+.ss-menu {
+  position: absolute;
+  z-index: 50;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  max-height: 280px;
+  overflow: auto;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  background: #fff;
+  box-shadow: 0 12px 30px rgba(0,0,0,0.12);
+}
+
+.ss-item {
+  padding: 10px 12px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.ss-item:hover,
+.ss-item.active {
+  background: #f3f4f6;
+}
+
+.ss-item.muted {
+  cursor: default;
+  color: #6b7280;
+}
