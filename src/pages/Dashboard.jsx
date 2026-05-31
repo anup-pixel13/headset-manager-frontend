@@ -59,7 +59,7 @@ function isOnHold(a) {
   return hs === 'on_hold' || hs === 'onhold' || hs === 'hold';
 }
 
-function toCount(v) {
+function toSafeNumber(v) {
   const n = Number(v);
   return Number.isFinite(n) ? n : 0;
 }
@@ -429,43 +429,43 @@ export default function Dashboard() {
     return [
       {
         label: 'Available',
-        value: toCount(inventory.available),
+        value: toSafeNumber(inventory.available),
         className: 'dash-tile available',
         onClick: () => navigate('/inventory?status=available'),
       },
       {
         label: 'Assigned',
-        value: toCount(inventory.assigned),
+        value: toSafeNumber(inventory.assigned),
         className: 'dash-tile assigned',
         onClick: () => navigate('/inventory?status=assigned'),
       },
       {
         label: 'Repair',
-        value: toCount(inventory.inRepair),
+        value: toSafeNumber(inventory.inRepair),
         className: 'dash-tile repair',
         onClick: () => navigate('/inventory?status=repair'),
       },
       {
         label: 'Lost',
-        value: toCount(inventory.lost),
+        value: toSafeNumber(inventory.lost),
         className: 'dash-tile lost',
         onClick: () => navigate('/inventory?status=lost'),
       },
       {
         label: 'Pending IDs',
-        value: toCount(alerts.pendingEmployeeIds),
+        value: toSafeNumber(alerts.pendingEmployeeIds),
         className: 'dash-tile pending',
         onClick: () => navigate('/pending?tab=ids'),
       },
       {
         label: 'Pending Signatures',
-        value: toCount(alerts.pendingSignatures),
+        value: toSafeNumber(alerts.pendingSignatures),
         className: 'dash-tile pending',
         onClick: () => navigate('/pending?tab=signatures'),
       },
       {
         label: 'On Hold',
-        value: toCount(stats?.assignments?.onHold),
+        value: toSafeNumber(alerts.onHold),
         className: 'dash-tile onhold',
         onClick: () => navigate('/hold'),
       },
