@@ -14,9 +14,8 @@ const DEFAULT_ITEMS_PER_PAGE = 9;
 const ITEMS_PER_PAGE_OPTIONS = [6, 9, 12, 15, 30, 60, 90];
 
 function toPositiveInt(value, fallback) {
-  const n = Number(value);
-  if (!Number.isFinite(n) || n <= 0) return fallback;
-  return Math.floor(n);
+  const n = parseInt(value ?? '', 10);
+  return Number.isFinite(n) && n > 0 ? n : fallback;
 }
 
 const toIso = (d) =>
@@ -59,9 +58,10 @@ function isOnHold(a) {
   return hs === 'on_hold' || hs === 'onhold' || hs === 'hold';
 }
 
-function toSafeNumber(v) {
+function formatMoney(v) {
   const n = Number(v);
-  return Number.isFinite(n) ? n : 0;
+  if (!Number.isFinite(n)) return '';
+  return n.toFixed(2);
 }
 
 export default function Dashboard() {
@@ -78,21 +78,6 @@ export default function Dashboard() {
   const isUserPageChangeRef = useRef(false);
   const didFilterOnceRef = useRef(false);
   const lastKeyRef = useRef('');
-
-  // ✅ Focus/scroll helpers
-  const assignmentCardRef = useRef(null);
-  const searchInputRef = useRef(null);
-  const shouldRestoreSearchFocusRef = useRef(false);
-
-  const scrollToAssignments = () => {
-    // Scroll slightly above the assignments container so the filters are visible.
-    const el = assignmentCardRef.current;
-    if (!el) return;
-
-    const top = el.getBoundingClientRect().top + window.scrollY;
-    const offset = 90; // header + breathing space
-    window.scrollTo({ top: Math.max(0, top - offset), behavior: 'smooth' });
-  };
 
   // ============================================
   // GET INITIAL STATE FROM URL
@@ -199,14 +184,6 @@ export default function Dashboard() {
 
       prevPageRef.current = currentPage;
       isUserPageChangeRef.current = false;
-
-      // ✅ If this change was triggered while typing in search, restore focus after URL sync.
-      if (shouldRestoreSearchFocusRef.current) {
-        queueMicrotask(() => {
-          // If the user is still on the page and the input exists, restore focus.
-          searchInputRef.current?.focus();
-        });
-      }
     }
   }, [
     dateFilter.startDate,
@@ -249,9 +226,6 @@ export default function Dashboard() {
     if (didFilterOnceRef.current && keyChanged && !isSyncingFromUrlRef.current) {
       isUserPageChangeRef.current = false;
       setCurrentPage(1);
-
-      // ✅ keep view on assignments when filters change
-      scrollToAssignments();
     }
 
     didFilterOnceRef.current = true;
@@ -295,20 +269,10 @@ export default function Dashboard() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [debouncedSearchTerm, assignmentStatus, processId, dateFilter.startDate, dateFilter.endDate, currentPage, itemsPerPage]);
 
-  // Restore focus on search after data refresh (only when change was from typing)
-  useEffect(() => {
-    if (!tableLoading && shouldRestoreSearchFocusRef.current) {
-      shouldRestoreSearchFocusRef.current = false;
-      searchInputRef.current?.focus();
-    }
-  }, [tableLoading]);
-
   const processOptions = useMemo(() => {
     const set = new Map();
     assignments.forEach((a) => {
-      const id = a?.process?.id ?? a?.processId ?? a?.process_id;
-      const name = a?.process?.name ?? a?.processName ?? a?.process_name;
-      if (id && name) set.set(String(id), name);
+      if (a?.processId && a?.processName) set.set(String(a.processId), a.processName);
     });
     const arr = Array.from(set.entries()).map(([id, name]) => ({ id, name }));
     arr.sort((a, b) => String(a.name).localeCompare(String(b.name)));
@@ -339,11 +303,11 @@ export default function Dashboard() {
     const tierRef = a?.tier?.refundAmount ?? '';
     const paidDep = a?.deposit?.amount ?? '';
 
-    const name = a?.agent?.name ?? a?.agentName ?? a?.agent_name ?? '';
-    const emp = a?.agent?.employeeId ?? a?.employeeId ?? a?.employee_id ?? '';
-    const headset = a?.headset?.number ?? a?.headsetNumber ?? a?.headset_number ?? '';
-    const type = a?.headset?.type ?? a?.headsetType ?? a?.headset_type ?? '';
-    const proc = a?.process?.name ?? a?.processName ?? a?.process_name ?? '';
+    const name = a?.agentName ?? '';
+    const emp = a?.employeeId ?? '';
+    const headset = a?.headsetNumber ?? '';
+    const type = a?.headsetType ?? '';
+    const proc = a?.processName ?? '';
 
     const assignedAt = a?.assignmentDate ? new Date(a.assignmentDate).toLocaleString() : '';
     const verified = a?.isVerified ? 'Yes' : 'No';
@@ -423,49 +387,48 @@ export default function Dashboard() {
 
   // tiles
   const tiles = useMemo(() => {
-    const inventory = stats?.inventory || {};
-    const alerts = stats?.alerts || {};
+    const v = stats || {};
 
     return [
       {
         label: 'Available',
-        value: toSafeNumber(inventory.available),
+        value: v.available ?? 0,
         className: 'dash-tile available',
         onClick: () => navigate('/inventory?status=available'),
       },
       {
         label: 'Assigned',
-        value: toSafeNumber(inventory.assigned),
+        value: v.assigned ?? 0,
         className: 'dash-tile assigned',
         onClick: () => navigate('/inventory?status=assigned'),
       },
       {
         label: 'Repair',
-        value: toSafeNumber(inventory.inRepair),
+        value: v.repair ?? 0,
         className: 'dash-tile repair',
         onClick: () => navigate('/inventory?status=repair'),
       },
       {
         label: 'Lost',
-        value: toSafeNumber(inventory.lost),
+        value: v.lost ?? 0,
         className: 'dash-tile lost',
         onClick: () => navigate('/inventory?status=lost'),
       },
       {
         label: 'Pending IDs',
-        value: toSafeNumber(alerts.pendingEmployeeIds),
+        value: v.pendingIds ?? 0,
         className: 'dash-tile pending',
         onClick: () => navigate('/pending?tab=ids'),
       },
       {
         label: 'Pending Signatures',
-        value: toSafeNumber(alerts.pendingSignatures),
+        value: v.pendingSignatures ?? 0,
         className: 'dash-tile pending',
         onClick: () => navigate('/pending?tab=signatures'),
       },
       {
         label: 'On Hold',
-        value: toSafeNumber(alerts.onHold),
+        value: v.onHold ?? 0,
         className: 'dash-tile onhold',
         onClick: () => navigate('/hold'),
       },
@@ -534,21 +497,31 @@ export default function Dashboard() {
               <button className="dash-action-btn" onClick={() => navigate('/create-agent')} type="button">
                 <i className="bi bi-person-badge" /> Create Agent
               </button>
+              <button className="dash-action-btn" onClick={() => navigate('/yjacks')} type="button">
+                <i className="bi bi-usb-plug" /> Y-Jacks
+              </button>
 
-              {/* Removed: Y-Jacks, Transfers, Deposits, All PDFs buttons (not needed on dashboard) */}
-
+              <button className="dash-action-btn" onClick={() => navigate('/transfers')} type="button">
+                <i className="bi bi-arrow-left-right" /> Transfers
+              </button>
               <button className="dash-action-btn" onClick={() => navigate('/process-change')} type="button">
                 <i className="bi bi-shuffle" /> Process Change
               </button>
               <button className="dash-action-btn" onClick={() => navigate('/repairs')} type="button">
                 <i className="bi bi-tools" /> Send for Repair
               </button>
+              <button className="dash-action-btn" onClick={() => navigate('/deposits')} type="button">
+                <i className="bi bi-cash-stack" /> Deposits
+              </button>
               <button className="dash-action-btn" onClick={() => navigate('/refunds')} type="button">
                 <i className="bi bi-arrow-repeat" /> Refunds
               </button>
+              <button className="dash-action-btn" onClick={() => navigate('/pdf-documents')} type="button">
+                <i className="bi bi-file-earmark-pdf" /> All PDFs
+              </button>
             </div>
 
-            <div className="dash-table-card" ref={assignmentCardRef}>
+            <div className="dash-table-card">
               <div className="dash-table-top">
                 <div className="dash-table-title">
                   <h2>Assignments (Date Range)</h2>
@@ -559,13 +532,8 @@ export default function Dashboard() {
                   <div className="dash-search">
                     <i className="bi bi-search" />
                     <input
-                      ref={searchInputRef}
                       value={searchTerm}
-                      onChange={(e) => {
-                        // Mark that this update is from typing so we can restore focus after URL sync.
-                        shouldRestoreSearchFocusRef.current = true;
-                        setSearchTerm(e.target.value);
-                      }}
+                      onChange={(e) => setSearchTerm(e.target.value)}
                       placeholder="Search name / headset / employee id..."
                     />
                   </div>
@@ -605,7 +573,8 @@ export default function Dashboard() {
                         : `Export all ${assignmentsTotal} assignments`
                     }
                   >
-                    <i className="bi bi-download" /> {hasActiveFilters ? 'Export Filtered' : 'Export All'} ({assignmentsTotal})
+                    <i className="bi bi-download" /> {hasActiveFilters ? 'Export Filtered' : 'Export All'} (
+                    {assignmentsTotal})
                   </button>
                 </div>
               </div>
@@ -634,7 +603,6 @@ export default function Dashboard() {
                     onClick={() => {
                       isUserPageChangeRef.current = true;
                       setCurrentPage((p) => Math.max(1, p - 1));
-                      scrollToAssignments();
                     }}
                   >
                     Prev
@@ -651,7 +619,6 @@ export default function Dashboard() {
                     onClick={() => {
                       isUserPageChangeRef.current = true;
                       setCurrentPage((p) => Math.min(totalPages, p + 1));
-                      scrollToAssignments();
                     }}
                   >
                     Next
@@ -678,13 +645,12 @@ export default function Dashboard() {
                       <th>Tier Ref</th>
                       <th>Paid Dep</th>
                       <th>PDF</th>
-                      <th>Actions</th>
                     </tr>
                   </thead>
                   <tbody>
                     {tableLoading ? (
                       <tr>
-                        <td colSpan={13} style={{ textAlign: 'center', padding: 16 }}>
+                        <td colSpan={12} style={{ textAlign: 'center', padding: 16 }}>
                           Loading...
                         </td>
                       </tr>
@@ -692,27 +658,36 @@ export default function Dashboard() {
                       assignments.map((a) => {
                         const hold = isOnHold(a);
                         const state = a?.isActive === false ? 'inactive' : hold ? 'on_hold' : 'active';
-                        const agentName = a?.agent?.name ?? a?.agentName ?? a?.agent_name ?? '—';
-                        const employeeId = a?.agent?.employeeId ?? a?.employeeId ?? a?.employee_id ?? '—';
-                        const processName = a?.process?.name ?? a?.processName ?? a?.process_name ?? '—';
-                        const headsetNumber = a?.headset?.number ?? a?.headsetNumber ?? a?.headset_number ?? '—';
-                        const headsetType = a?.headset?.type ?? a?.headsetType ?? a?.headset_type ?? '';
-                        const agentId = a?.agent?.id ?? a?.agentId ?? a?.agent_id;
 
+                        // point #1: row highlighting using existing Dashboard.css classes
+                        const rowClass =
+                          state === 'inactive'
+                            ? 'dash-row-inactive'
+                            : state === 'on_hold'
+                              ? 'dash-row-hold'
+                              : '';
+
+                        // point #2: PDF controls + disable Generate if PDF exists
                         const isGenerating = !!a?.depositPdf?.isGenerating;
-                        const generateDisabled = isGenerating;
-                        const generateTitle = isGenerating ? 'Generating...' : 'Generate PDF';
+                        const pdfExists = !!a?.depositPdf?.viewUrl || !!a?.depositPdf?.downloadUrl;
+
+                        const generateDisabled = isGenerating || pdfExists;
+                        const generateTitle = isGenerating
+                          ? 'Generating...'
+                          : pdfExists
+                            ? 'PDF already generated'
+                            : 'Generate PDF';
 
                         const viewDisabled = !a?.depositPdf?.viewUrl;
                         const downloadDisabled = !a?.depositPdf?.downloadUrl;
 
                         return (
-                          <tr key={a.id} className={state === 'on_hold' ? 'row-onhold' : ''}>
-                            <td>{agentName}</td>
-                            <td>{employeeId}</td>
-                            <td>{processName}</td>
-                            <td>{headsetNumber}</td>
-                            <td>{formatHeadsetType(headsetType)}</td>
+                          <tr key={a.id} className={rowClass}>
+                            <td>{a.agentName}</td>
+                            <td>{a.employeeId}</td>
+                            <td>{a.processName}</td>
+                            <td>{a.headsetNumber}</td>
+                            <td>{formatHeadsetType(a.headsetType)}</td>
                             <td>{a.assignmentDate ? new Date(a.assignmentDate).toLocaleString() : '—'}</td>
                             <td>{a.isVerified ? 'Yes' : 'No'}</td>
                             <td>
@@ -755,27 +730,6 @@ export default function Dashboard() {
                                 </button>
                               </div>
                             </td>
-                            <td>
-                              <div className="dash-row-btns">
-                                <button
-                                  type="button"
-                                  className="dash-row-btn"
-                                  onClick={() => navigate(`/agent/${agentId || ''}`)}
-                                  disabled={!agentId}
-                                >
-                                  View
-                                </button>
-
-                                <button
-                                  type="button"
-                                  className="dash-row-btn danger"
-                                  onClick={() => navigate(`/deassign-agent/${agentId || ''}`)}
-                                  disabled={!agentId}
-                                >
-                                  De‑Assign
-                                </button>
-                              </div>
-                            </td>
                           </tr>
                         );
                       })
@@ -783,7 +737,7 @@ export default function Dashboard() {
 
                     {!tableLoading && assignments.length === 0 && (
                       <tr>
-                        <td colSpan={13} style={{ textAlign: 'center', padding: 16 }}>
+                        <td colSpan={12} style={{ textAlign: 'center', padding: 16 }}>
                           No assignments found
                         </td>
                       </tr>
