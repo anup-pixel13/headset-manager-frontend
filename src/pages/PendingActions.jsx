@@ -61,27 +61,28 @@ export default function PendingActions() {
   const lastIdKeyRef = useRef('');
 
   const initial = useMemo(() => {
-    const tab = searchParams.get('tab') === 'ids' ? 'ids' : DEFAULT_TAB;
-    const search = searchParams.get('search') || '';
-    const page = toPositiveInt(searchParams.get('page'), DEFAULT_PAGE);
-    const perPage = toPositiveInt(searchParams.get('perPage'), DEFAULT_ITEMS_PER_PAGE);
+    const initialTab = searchParams.get('tab') === 'ids' ? 'ids' : DEFAULT_TAB;
+    const initialSearch = searchParams.get('search') || '';
+    const initialPage = toPositiveInt(searchParams.get('page'), DEFAULT_PAGE);
+    const initialPerPage = toPositiveInt(searchParams.get('perPage'), DEFAULT_ITEMS_PER_PAGE);
 
     return {
-      tab,
+      tab: initialTab,
       signatures: {
-        search: tab === 'signatures' ? search : '',
-        page: tab === 'signatures' ? page : DEFAULT_PAGE,
-        perPage: tab === 'signatures' ? perPage : DEFAULT_ITEMS_PER_PAGE,
+        search: initialTab === 'signatures' ? initialSearch : '',
+        page: initialTab === 'signatures' ? initialPage : DEFAULT_PAGE,
+        perPage: initialTab === 'signatures' ? initialPerPage : DEFAULT_ITEMS_PER_PAGE,
         missing: searchParams.get('missing') || DEFAULT_SIG_MISSING,
       },
       ids: {
-        search: tab === 'ids' ? search : '',
-        page: tab === 'ids' ? page : DEFAULT_PAGE,
-        perPage: tab === 'ids' ? perPage : DEFAULT_ITEMS_PER_PAGE,
+        search: initialTab === 'ids' ? initialSearch : '',
+        page: initialTab === 'ids' ? initialPage : DEFAULT_PAGE,
+        perPage: initialTab === 'ids' ? initialPerPage : DEFAULT_ITEMS_PER_PAGE,
         process: searchParams.get('process') || DEFAULT_ID_PROCESS,
         idStatus: searchParams.get('idStatus') || DEFAULT_ID_STATUS,
       },
     };
+    // Read once on mount to seed initial tab/query state from URL.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -169,9 +170,8 @@ export default function PendingActions() {
   }, [authLoading, isAdmin, navigate]);
 
   useEffect(() => {
-    (async () => {
-      await load();
-    })();
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -222,9 +222,7 @@ export default function PendingActions() {
         prevPageRef.current = urlPage;
       }
 
-      queueMicrotask(() => {
-        isSyncingFromUrlRef.current = false;
-      });
+      isSyncingFromUrlRef.current = false;
     });
   }, [searchParams]);
 
@@ -274,7 +272,7 @@ export default function PendingActions() {
   ]);
 
   useEffect(() => {
-    const key = `${debouncedSigSearch}||${sigMissingFilter}`;
+    const key = `${debouncedSigSearch}::${sigMissingFilter}`;
     const changed = lastSigKeyRef.current !== key;
     if (didSigFilterOnceRef.current && changed && !isSyncingFromUrlRef.current) {
       isUserPageChangeRef.current = false;
@@ -285,7 +283,7 @@ export default function PendingActions() {
   }, [debouncedSigSearch, sigMissingFilter]);
 
   useEffect(() => {
-    const key = `${debouncedIdSearch}||${idProcessFilter}||${idStatusFilter}`;
+    const key = `${debouncedIdSearch}::${idProcessFilter}::${idStatusFilter}`;
     const changed = lastIdKeyRef.current !== key;
     if (didIdFilterOnceRef.current && changed && !isSyncingFromUrlRef.current) {
       isUserPageChangeRef.current = false;
@@ -401,9 +399,9 @@ export default function PendingActions() {
   }, [pendingSigs, debouncedSigSearch, sigMissingFilter]);
 
   const processOptions = useMemo(() => {
-    const values = Array.from(new Set(pendingIds.map((r) => String(r.process || '').trim()).filter(Boolean))).sort((a, b) =>
-      a.localeCompare(b),
-    );
+    const values = Array.from(new Set(pendingIds.map((r) => String(r.process || '').trim())))
+      .filter(Boolean)
+      .sort((a, b) => a.localeCompare(b));
     return [
       { value: DEFAULT_ID_PROCESS, label: 'All Processes' },
       ...values.map((v) => ({ value: v, label: v })),
