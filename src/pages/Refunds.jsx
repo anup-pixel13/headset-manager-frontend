@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import * as XLSX from 'xlsx';
 
 import { formatHeadsetType } from '../utils/headsetFormat';
@@ -42,6 +42,7 @@ function useDebouncedValue(value, delayMs) {
 }
 
 export default function Refunds() {
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
 
   // URL sync refs (same approach as Dashboard)
@@ -379,6 +380,15 @@ export default function Refunds() {
           </div>
 
           <div className="refunds-date-range">
+            <button
+              className="refunds-reset-btn"
+              type="button"
+              onClick={() => navigate('/dashboard')}
+              title="Back to Dashboard"
+            >
+              <i className="bi bi-arrow-left" /> Dashboard
+            </button>
+
             <input
               type="date"
               value={dateFilter.startDate}
