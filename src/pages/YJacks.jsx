@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import * as XLSX from 'xlsx';
 
 import SmartPagination from '../components/SmartPagination';
-import { getYJacks, assignYJack, unassignYJack } from '../services/yjackService';
+import { getYJacks, assignYJack, unassignYJack } from '../services/yJackService';
 import './YJacks.css';
 
 const DEFAULT_PAGE = 1;

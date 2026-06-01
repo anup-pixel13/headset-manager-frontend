@@ -13,12 +13,28 @@ import SmartPagination from '../components/SmartPagination';
 import './RepairReplacements.css';
 
 const DEFAULT_PAGE = 1;
-const DEFAULT_LIMIT = 20;
-const LIMIT_OPTIONS = [10, 20, 30, 50, 100];
+const DEFAULT_LIMIT = 9;
+const LIMIT_OPTIONS = [6, 9, 12, 15, 30, 60, 90];
+
+const toIso = (d) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+const DEFAULT_TODAY = toIso(new Date());
+const oneYearAgo = new Date();
+oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
+const DEFAULT_START = toIso(oneYearAgo);
 
 function toPosInt(v, fallback) {
   const n = parseInt(v ?? '', 10);
   return Number.isFinite(n) && n > 0 ? n : fallback;
+}
+
+function useDebouncedValue(value, delayMs) {
+  const [debounced, setDebounced] = useState(value);
+  useEffect(() => {
+    const t = setTimeout(() => setDebounced(value), delayMs);
+    return () => clearTimeout(t);
+  }, [value, delayMs]);
+  return debounced;
 }
 
 const getStateChip = (row, tab) => {
@@ -38,7 +54,7 @@ const getStateChip = (row, tab) => {
 };
 
 // ---------------------------
-// Agent Exit Modal (unchanged behavior; only uses existing classes)
+// Agent Exit Modal — sticky header + scrollable body + sticky footer
 // ---------------------------
 function AgentExitModal({ open, loading, row, onClose, onSubmit }) {
   const [reason, setReason] = useState('terminated');
@@ -60,11 +76,24 @@ function AgentExitModal({ open, loading, row, onClose, onSubmit }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [received]);
 
+  // Escape key + body scroll lock
+  useEffect(() => {
+    if (!open) return undefined;
+    const prev = document.body.style.overflow || '';
+    document.body.style.overflow = 'hidden';
+    const onKey = (e) => { if (e.key === 'Escape' && !loading) onClose(); };
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.body.style.overflow = prev;
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [open, loading, onClose]);
+
   if (!open || !row) return null;
 
   return (
     <div className="rr-modal-backdrop" onClick={onClose}>
-      <div className="rr-modal" onClick={(e) => e.stopPropagation()} style={{ width: 'min(720px, 95vw)' }}>
+      <div className="rr-modal" onClick={(e) => e.stopPropagation()}>
         <div className="rr-modal-header">
           <h3 style={{ margin: 0 }}>Agent Exit</h3>
           <button className="rr-modal-close" type="button" onClick={onClose}>
@@ -140,7 +169,7 @@ function AgentExitModal({ open, loading, row, onClose, onSubmit }) {
           </div>
         </div>
 
-        <div className="rr-modal-actions">
+        <div className="rr-modal-footer">
           <button className="rr-action-btn secondary" type="button" onClick={onClose} disabled={loading}>
             Cancel
           </button>
@@ -166,6 +195,92 @@ function AgentExitModal({ open, loading, row, onClose, onSubmit }) {
   );
 }
 
+// ---------------------------
+// Rehandover Modal — sticky header + scrollable body + sticky footer
+// ---------------------------
+function RehandoverModal({ open, loading, row, form, setForm, onClose, onSubmit }) {
+  // Escape key + body scroll lock
+  useEffect(() => {
+    if (!open) return undefined;
+    const prev = document.body.style.overflow || '';
+    document.body.style.overflow = 'hidden';
+    const onKey = (e) => { if (e.key === 'Escape' && !loading) onClose(); };
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.body.style.overflow = prev;
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [open, loading, onClose]);
+
+  if (!open || !row) return null;
+
+  return (
+    <div className="rr-modal-backdrop" onClick={onClose}>
+      <div className="rr-modal" onClick={(e) => e.stopPropagation()}>
+        <div className="rr-modal-header">
+          <h3 style={{ margin: 0 }}>Rehandover Repaired Headset</h3>
+          <button className="rr-modal-close" type="button" onClick={onClose}>
+            ×
+          </button>
+        </div>
+
+        <div className="rr-modal-body">
+          <div className="rr-modal-meta" style={{ fontWeight: 700 }}>
+            <div>
+              <b>Agent:</b> {row?.agent?.name} ({row?.agent?.employeeId || '—'})
+            </div>
+            <div>
+              <b>Original:</b> {row?.originalHeadset?.number || '—'} ({row?.originalHeadset?.status || ''})
+            </div>
+            <div>
+              <b>Temp:</b> {row?.tempHeadset?.number || '—'}
+            </div>
+            <div>
+              <b>Parent Assignment:</b> #{row?.parentAssignmentId || '—'}
+            </div>
+          </div>
+
+          <div className="rr-field">
+            <label>Condition after repair *</label>
+            <select
+              value={form.condition_after}
+              onChange={(e) => setForm((p) => ({ ...p, condition_after: e.target.value }))}
+              disabled={loading}
+            >
+              <option value="good">good</option>
+              <option value="fair">fair</option>
+            </select>
+          </div>
+
+          <div className="rr-field">
+            <label>Notes (optional)</label>
+            <textarea
+              rows={3}
+              value={form.notes}
+              onChange={(e) => setForm((p) => ({ ...p, notes: e.target.value }))}
+              placeholder="Any remarks..."
+              disabled={loading}
+            />
+          </div>
+
+          <div className="rr-inline-warn">
+            Rehandover is allowed only after the original headset is received from the repair lot.
+          </div>
+        </div>
+
+        <div className="rr-modal-footer">
+          <button className="rr-action-btn secondary" type="button" onClick={onClose} disabled={loading}>
+            Cancel
+          </button>
+          <button className="rr-action-btn" type="button" onClick={onSubmit} disabled={loading}>
+            {loading ? 'Submitting...' : 'Confirm Rehandover'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function RepairReplacements() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -173,21 +288,30 @@ export default function RepairReplacements() {
 
   const isInitialMountRef = useRef(true);
   const isSyncingFromUrlRef = useRef(false);
+  const urlInitializedRef = useRef(false);
   const prevPageRef = useRef(null);
   const isUserPageChangeRef = useRef(false);
+  const didFilterOnceRef = useRef(false);
+  const lastKeyRef = useRef('');
   const tableCardRef = useRef(null);
 
   const initial = useMemo(() => {
-    return {
-      tab: searchParams.get('tab') === 'inactive' ? 'inactive' : 'active',
-      search: searchParams.get('search') || '',
-      page: toPosInt(searchParams.get('page'), DEFAULT_PAGE),
-      limit: toPosInt(searchParams.get('limit'), DEFAULT_LIMIT),
-    };
+    const tab = searchParams.get('tab') === 'inactive' ? 'inactive' : 'active';
+    const search = searchParams.get('search') || '';
+    const startDate = searchParams.get('startDate') || DEFAULT_START;
+    const endDate = searchParams.get('endDate') || DEFAULT_TODAY;
+    const sortBy = searchParams.get('sortBy') || 'id';
+    const sortOrder = searchParams.get('sortOrder') === 'ASC' ? 'ASC' : 'DESC';
+    const page = toPosInt(searchParams.get('page'), DEFAULT_PAGE);
+    const limit = toPosInt(searchParams.get('limit'), DEFAULT_LIMIT);
+    return { tab, search, startDate, endDate, sortBy, sortOrder, page, limit };
   }, [searchParams]);
 
   const [tab, setTab] = useState(initial.tab);
   const [search, setSearch] = useState(initial.search);
+  const [dateFilter, setDateFilter] = useState({ startDate: initial.startDate, endDate: initial.endDate });
+  const [sortBy, setSortBy] = useState(initial.sortBy);
+  const [sortOrder, setSortOrder] = useState(initial.sortOrder);
   const [page, setPage] = useState(initial.page);
   const [limit, setLimit] = useState(initial.limit);
 
@@ -207,6 +331,8 @@ export default function RepairReplacements() {
   const [agentExitLoading, setAgentExitLoading] = useState(false);
   const [agentExitRow, setAgentExitRow] = useState(null);
 
+  const debouncedSearch = useDebouncedValue(search, 300);
+
   useEffect(() => {
     if (authLoading) return;
     if (!isAdmin) navigate('/dashboard', { replace: true });
@@ -222,17 +348,25 @@ export default function RepairReplacements() {
   useEffect(() => {
     if (isInitialMountRef.current) {
       isInitialMountRef.current = false;
+      urlInitializedRef.current = true;
       return;
     }
     isSyncingFromUrlRef.current = true;
 
     const nextTab = searchParams.get('tab') === 'inactive' ? 'inactive' : 'active';
     const nextSearch = searchParams.get('search') || '';
+    const nextStartDate = searchParams.get('startDate') || DEFAULT_START;
+    const nextEndDate = searchParams.get('endDate') || DEFAULT_TODAY;
+    const nextSortBy = searchParams.get('sortBy') || 'id';
+    const nextSortOrder = searchParams.get('sortOrder') === 'ASC' ? 'ASC' : 'DESC';
     const nextPage = toPosInt(searchParams.get('page'), DEFAULT_PAGE);
     const nextLimit = toPosInt(searchParams.get('limit'), DEFAULT_LIMIT);
 
     setTab(nextTab);
     setSearch(nextSearch);
+    setDateFilter({ startDate: nextStartDate, endDate: nextEndDate });
+    setSortBy(nextSortBy);
+    setSortOrder(nextSortOrder);
     setPage(nextPage);
     setLimit(nextLimit);
     prevPageRef.current = nextPage;
@@ -242,23 +376,40 @@ export default function RepairReplacements() {
 
   // state -> URL
   useEffect(() => {
-    if (isSyncingFromUrlRef.current) return;
+    if (isSyncingFromUrlRef.current || !urlInitializedRef.current) return;
 
     const p = new URLSearchParams();
     p.set('tab', tab);
     if (search) p.set('search', search);
+    p.set('startDate', dateFilter.startDate || DEFAULT_START);
+    p.set('endDate', dateFilter.endDate || DEFAULT_TODAY);
+    if (sortBy !== 'id') p.set('sortBy', sortBy);
+    if (sortOrder !== 'DESC') p.set('sortOrder', sortOrder);
     p.set('page', String(page));
     if (limit !== DEFAULT_LIMIT) p.set('limit', String(limit));
 
     if (p.toString() !== searchParams.toString()) {
       const pageChanged = prevPageRef.current !== page;
       const shouldPush = isUserPageChangeRef.current && pageChanged;
-
       setSearchParams(p, { replace: !shouldPush });
       prevPageRef.current = page;
       isUserPageChangeRef.current = false;
     }
-  }, [tab, search, page, limit, setSearchParams, searchParams]);
+  }, [tab, search, dateFilter.startDate, dateFilter.endDate, sortBy, sortOrder, page, limit, setSearchParams, searchParams]);
+
+  // Reset page when filters change
+  useEffect(() => {
+    const key = JSON.stringify({ tab, search, startDate: dateFilter.startDate, endDate: dateFilter.endDate, sortBy, sortOrder });
+    const keyChanged = lastKeyRef.current !== key;
+
+    if (didFilterOnceRef.current && keyChanged && !isSyncingFromUrlRef.current) {
+      isUserPageChangeRef.current = false;
+      setPage(1);
+    }
+
+    didFilterOnceRef.current = true;
+    lastKeyRef.current = key;
+  }, [tab, search, dateFilter.startDate, dateFilter.endDate, sortBy, sortOrder]);
 
   useEffect(() => {
     if (page > totalPages) setPage(totalPages);
@@ -270,10 +421,13 @@ export default function RepairReplacements() {
     try {
       const res = await getTempReplacements({
         status: tab,
-        search,
+        search: debouncedSearch,
+        start_date: dateFilter.startDate,
+        end_date: dateFilter.endDate,
+        sort_by: sortBy,
         page,
         limit,
-        sort_order: 'DESC',
+        sort_order: sortOrder,
       });
 
       setRows(res.data?.data || []);
@@ -291,7 +445,7 @@ export default function RepairReplacements() {
   useEffect(() => {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tab, search, page, limit]);
+  }, [tab, debouncedSearch, dateFilter.startDate, dateFilter.endDate, sortBy, sortOrder, page, limit]);
 
   // Rehandover
   const openRehandover = (row) => {
@@ -408,10 +562,13 @@ export default function RepairReplacements() {
       while (true) {
         const res = await getTempReplacements({
           status: tab,
-          search,
+          search: debouncedSearch,
+          start_date: dateFilter.startDate,
+          end_date: dateFilter.endDate,
+          sort_by: sortBy,
           page: p,
           limit: MAX_LIMIT,
-          sort_order: 'DESC',
+          sort_order: sortOrder,
         });
 
         const batch = res.data?.data || [];
@@ -513,7 +670,6 @@ export default function RepairReplacements() {
                 value={search}
                 onChange={(e) => {
                   isUserPageChangeRef.current = false;
-                  setPage(1);
                   setSearch(e.target.value);
                 }}
                 placeholder="Search agent / emp id / temp headset # / original headset #"
@@ -524,7 +680,6 @@ export default function RepairReplacements() {
                   type="button"
                   onClick={() => {
                     isUserPageChangeRef.current = false;
-                    setPage(1);
                     setSearch('');
                   }}
                   title="Clear"
@@ -534,12 +689,51 @@ export default function RepairReplacements() {
               )}
             </div>
 
+            <input
+              type="date"
+              className="rr-select"
+              value={dateFilter.startDate}
+              onChange={(e) => {
+                isUserPageChangeRef.current = false;
+                setDateFilter((prev) => ({ ...prev, startDate: e.target.value }));
+              }}
+              title="Start date"
+            />
+            <input
+              type="date"
+              className="rr-select"
+              value={dateFilter.endDate}
+              onChange={(e) => {
+                isUserPageChangeRef.current = false;
+                setDateFilter((prev) => ({ ...prev, endDate: e.target.value }));
+              }}
+              title="End date"
+            />
+
+            <select
+              className="rr-select"
+              value={`${sortBy}:${sortOrder}`}
+              onChange={(e) => {
+                const [by, order] = e.target.value.split(':');
+                isUserPageChangeRef.current = false;
+                setSortBy(by);
+                setSortOrder(order);
+              }}
+              title="Sort"
+            >
+              <option value="id:DESC">ID ↓</option>
+              <option value="id:ASC">ID ↑</option>
+              <option value="assignmentDate:DESC">Date ↓</option>
+              <option value="assignmentDate:ASC">Date ↑</option>
+              <option value="returnDate:DESC">Return Date ↓</option>
+              <option value="returnDate:ASC">Return Date ↑</option>
+            </select>
+
             <select
               className="rr-select"
               value={limit}
               onChange={(e) => {
                 isUserPageChangeRef.current = false;
-                setPage(1);
                 setLimit(toPosInt(e.target.value, DEFAULT_LIMIT));
               }}
               title="Items per page"
@@ -690,69 +884,15 @@ export default function RepairReplacements() {
 
         {/* Rehandover modal */}
         {rehandoverOpen && (
-          <div className="rr-modal-backdrop" onClick={closeRehandover}>
-            <div className="rr-modal" onClick={(e) => e.stopPropagation()} style={{ width: 'min(640px, 95vw)' }}>
-              <div className="rr-modal-header">
-                <h3 style={{ margin: 0 }}>Rehandover Repaired Headset</h3>
-                <button className="rr-modal-close" type="button" onClick={closeRehandover}>
-                  ×
-                </button>
-              </div>
-
-              <div className="rr-modal-body">
-                <div className="rr-modal-meta" style={{ fontWeight: 700 }}>
-                  <div>
-                    <b>Agent:</b> {rehandoverRow?.agent?.name} ({rehandoverRow?.agent?.employeeId || '—'})
-                  </div>
-                  <div>
-                    <b>Original:</b> {rehandoverRow?.originalHeadset?.number || '—'} ({rehandoverRow?.originalHeadset?.status || ''})
-                  </div>
-                  <div>
-                    <b>Temp:</b> {rehandoverRow?.tempHeadset?.number || '—'}
-                  </div>
-                  <div>
-                    <b>Parent Assignment:</b> #{rehandoverRow?.parentAssignmentId || '—'}
-                  </div>
-                </div>
-
-                <div className="rr-field">
-                  <label>Condition after repair *</label>
-                  <select
-                    value={rehandoverForm.condition_after}
-                    onChange={(e) => setRehandoverForm((p) => ({ ...p, condition_after: e.target.value }))}
-                    disabled={rehandoverLoading}
-                  >
-                    <option value="good">good</option>
-                    <option value="fair">fair</option>
-                  </select>
-                </div>
-
-                <div className="rr-field">
-                  <label>Notes (optional)</label>
-                  <textarea
-                    rows={3}
-                    value={rehandoverForm.notes}
-                    onChange={(e) => setRehandoverForm((p) => ({ ...p, notes: e.target.value }))}
-                    placeholder="Any remarks..."
-                    disabled={rehandoverLoading}
-                  />
-                </div>
-
-                <div className="rr-inline-warn">
-                  Rehandover is allowed only after the original headset is received from the repair lot.
-                </div>
-              </div>
-
-              <div className="rr-modal-actions">
-                <button className="rr-action-btn secondary" type="button" onClick={closeRehandover} disabled={rehandoverLoading}>
-                  Cancel
-                </button>
-                <button className="rr-action-btn" type="button" onClick={submitRehandover} disabled={rehandoverLoading}>
-                  {rehandoverLoading ? 'Submitting...' : 'Confirm Rehandover'}
-                </button>
-              </div>
-            </div>
-          </div>
+          <RehandoverModal
+            open={rehandoverOpen}
+            loading={rehandoverLoading}
+            row={rehandoverRow}
+            form={rehandoverForm}
+            setForm={setRehandoverForm}
+            onClose={closeRehandover}
+            onSubmit={submitRehandover}
+          />
         )}
 
         <AgentExitModal
