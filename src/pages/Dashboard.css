@@ -196,19 +196,51 @@
   position:relative;
   min-width: 260px;
 }
-.dash-search i{
+/* Only style the SEARCH ICON (first icon), not the clear button's icon */
+.dash-search > i.bi-search{
   position:absolute;
   left: 14px;
   top: 50%;
   transform: translateY(-50%);
   color:#667eea;
+  pointer-events: none;
 }
 .dash-search input{
   width:100%;
-  padding: 11px 14px 11px 40px;
+  padding: 11px 40px 11px 40px; /* room for clear btn on right */
   border:2px solid #e5e7eb;
   border-radius: 10px;
 }
+
+/* ===== Clear search button ===== */
+.dash-search-clear{
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 26px;
+  height: 26px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 50%;
+  background: #e5e7eb;
+  color: #374151;
+  cursor: pointer;
+  padding: 0;
+  line-height: 1;
+  z-index: 2;
+}
+.dash-search-clear:hover{
+  background: #ef4444;
+  color: #fff;
+}
+.dash-search-clear i{
+  font-size: 12px;
+  line-height: 1;
+}
+
 .dash-select{
   padding: 11px 14px;
   border:2px solid #e5e7eb;
@@ -271,10 +303,10 @@
 
 .dash-pagination{
   display:flex;
-  justify-content:space-between;
+  justify-content:center;
   align-items:center;
   margin-top: 12px;
-  gap: 10px;
+  gap: 8px;
   flex-wrap:wrap;
 }
 .dash-page-btn{
@@ -290,6 +322,23 @@
   cursor: not-allowed;
 }
 .dash-page-text{ color:#6b7280; }
+
+/* numeric pagination buttons */
+.dash-page-num{
+  min-width: 40px;
+  text-align: center;
+}
+.dash-page-num.active{
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: #fff;
+  border-color: transparent;
+  opacity: 1 !important;
+}
+.dash-page-ellipsis{
+  padding: 0 6px;
+  color: #9ca3af;
+  font-weight: 800;
+}
 
 @media (max-width: 768px) {
   .dash-container { padding: 80px 15px 40px; }
