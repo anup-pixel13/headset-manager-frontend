@@ -34,6 +34,24 @@ function loginStatusToApi(v) {
   return '';
 }
 
+function buildPageList(current, total) {
+  const pages = new Set();
+  pages.add(1);
+  pages.add(total);
+  for (let i = current - 1; i <= current + 1; i++) {
+    if (i >= 1 && i <= total) pages.add(i);
+  }
+  const sorted = Array.from(pages).sort((a, b) => a - b);
+  const out = [];
+  let prev = 0;
+  for (const p of sorted) {
+    if (prev && p - prev > 1) out.push('...');
+    out.push(p);
+    prev = p;
+  }
+  return out;
+}
+
 export default function Agents() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -46,6 +64,9 @@ export default function Agents() {
   const didFilterOnceRef = useRef(false);
   const lastKeyRef = useRef('');
 
+  const tableCardRef = useRef(null);
+
+  // Read URL once on mount only (avoids re-derivation on every searchParams change)
   const initial = useMemo(() => {
     const search = searchParams.get('search') || '';
     const agentStatus = searchParams.get('agentStatus') || DEFAULT_AGENT_STATUS;
@@ -65,7 +86,8 @@ export default function Agents() {
       page,
       perPage,
     };
-  }, [searchParams]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const [searchTerm, setSearchTerm] = useState(initial.search);
   const [agentStatus, setAgentStatus] = useState(initial.agentStatus);
@@ -84,13 +106,13 @@ export default function Agents() {
 
   const [processOptions, setProcessOptions] = useState([{ id: 'all', name: 'All Processes' }]);
 
-  const debouncedSearchTerm = useDebouncedValue(searchTerm, 300);
+  const debouncedSearchTerm = useDebouncedValue(searchTerm, 400);
 
   useEffect(() => {
     if (prevPageRef.current === null) prevPageRef.current = initial.page;
   }, [initial.page]);
 
-  // URL -> state
+  // URL -> state (guarded so identical values do not cause extra re-renders while typing)
   useEffect(() => {
     if (isInitialMountRef.current) {
       isInitialMountRef.current = false;
@@ -109,25 +131,25 @@ export default function Agents() {
     const page = toPositiveInt(searchParams.get('page'), DEFAULT_PAGE);
     const perPage = toPositiveInt(searchParams.get('perPage'), DEFAULT_ITEMS_PER_PAGE);
 
-    setSearchTerm(search);
-    setAgentStatus(aStatus);
-    setLoginStatus(lStatus);
-    setHasHeadset(hHeadset);
-    setProcessId(proc);
-    setCurrentPage(page);
-    setItemsPerPage(perPage);
+    setSearchTerm((prev) => (prev === search ? prev : search));
+    setAgentStatus((prev) => (prev === aStatus ? prev : aStatus));
+    setLoginStatus((prev) => (prev === lStatus ? prev : lStatus));
+    setHasHeadset((prev) => (prev === hHeadset ? prev : hHeadset));
+    setProcessId((prev) => (prev === proc ? prev : proc));
+    setCurrentPage((prev) => (prev === page ? prev : page));
+    setItemsPerPage((prev) => (prev === perPage ? prev : perPage));
 
     prevPageRef.current = page;
     queueMicrotask(() => (isSyncingFromUrlRef.current = false));
   }, [searchParams]);
 
-  // state -> URL
+  // state -> URL  (use DEBOUNCED search so URL does not update on every keystroke)
   useEffect(() => {
     if (isSyncingFromUrlRef.current || !urlInitializedRef.current) return;
 
     const p = new URLSearchParams();
 
-    if (searchTerm) p.set('search', searchTerm);
+    if (debouncedSearchTerm) p.set('search', debouncedSearchTerm);
     if (agentStatus !== DEFAULT_AGENT_STATUS) p.set('agentStatus', agentStatus);
     if (loginStatus !== DEFAULT_LOGIN_STATUS) p.set('loginStatus', loginStatus);
     if (hasHeadset !== DEFAULT_HAS_HEADSET) p.set('hasHeadset', hasHeadset);
@@ -145,11 +167,11 @@ export default function Agents() {
       prevPageRef.current = currentPage;
       isUserPageChangeRef.current = false;
     }
-  }, [searchTerm, agentStatus, loginStatus, hasHeadset, processId, currentPage, itemsPerPage, setSearchParams, searchParams]);
+  }, [debouncedSearchTerm, agentStatus, loginStatus, hasHeadset, processId, currentPage, itemsPerPage, setSearchParams, searchParams]);
 
   // Reset page when filters change
   useEffect(() => {
-    const key = `${searchTerm}||${agentStatus}||${loginStatus}||${hasHeadset}||${processId}`;
+    const key = `${debouncedSearchTerm}||${agentStatus}||${loginStatus}||${hasHeadset}||${processId}`;
     const changed = lastKeyRef.current !== key;
     if (didFilterOnceRef.current && changed && !isSyncingFromUrlRef.current) {
       isUserPageChangeRef.current = false;
@@ -157,7 +179,7 @@ export default function Agents() {
     }
     didFilterOnceRef.current = true;
     lastKeyRef.current = key;
-  }, [searchTerm, agentStatus, loginStatus, hasHeadset, processId]);
+  }, [debouncedSearchTerm, agentStatus, loginStatus, hasHeadset, processId]);
 
   // Load processes for filter dropdown
   useEffect(() => {
@@ -177,7 +199,7 @@ export default function Agents() {
       search: debouncedSearchTerm || '',
       status: agentStatus === 'all' ? '' : agentStatus,
       user_is_active: loginStatusToApi(loginStatus),
-      has_headset: hasHeadset === 'all' ? '' : hasHeadset, // 'true'/'false'
+      has_headset: hasHeadset === 'all' ? '' : hasHeadset,
       process_id: processId === 'all' ? '' : processId,
       page: currentPage,
       limit: itemsPerPage,
@@ -289,6 +311,34 @@ export default function Agents() {
     }
   };
 
+  // Pagination scroll helpers (same as Dashboard)
+  const scrollToCardTop = () => {
+    const el = tableCardRef.current;
+    if (!el) return;
+    const top = el.getBoundingClientRect().top + window.scrollY - 12;
+    window.scrollTo({ top, left: 0, behavior: 'smooth' });
+  };
+  const scrollToCardBottom = () => {
+    const el = tableCardRef.current;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    const bottom = rect.bottom + window.scrollY - window.innerHeight + 12;
+    window.scrollTo({ top: Math.max(0, bottom), left: 0, behavior: 'smooth' });
+  };
+  const goToPage = (target, anchor = 'top') => {
+    if (target < 1 || target > totalPages || target === currentPage) return;
+    isUserPageChangeRef.current = true;
+    setCurrentPage(target);
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        if (anchor === 'bottom') scrollToCardBottom();
+        else scrollToCardTop();
+      });
+    });
+  };
+
+  const pageList = useMemo(() => buildPageList(currentPage, totalPages), [currentPage, totalPages]);
+
   return (
     <div className="dash-container">
       <div className="container dash-content">
@@ -307,7 +357,7 @@ export default function Agents() {
           </div>
         </div>
 
-        <div className="dash-table-card">
+        <div className="dash-table-card" ref={tableCardRef}>
           <div className="dash-table-top">
             <div className="dash-table-title">
               <h2>Agents</h2>
@@ -322,6 +372,17 @@ export default function Agents() {
                   onChange={(e) => setSearchTerm(e.target.value)}
                   placeholder="Search name / emp id / email / phone..."
                 />
+                {searchTerm && (
+                  <button
+                    type="button"
+                    className="dash-search-clear"
+                    onClick={() => setSearchTerm('')}
+                    title="Clear search"
+                    aria-label="Clear search"
+                  >
+                    <i className="bi bi-x-lg" />
+                  </button>
+                )}
               </div>
 
               <select className="dash-select" value={loginStatus} onChange={(e) => setLoginStatus(e.target.value)}>
@@ -398,7 +459,7 @@ export default function Agents() {
           {tableMsg.text && <div className={`dash-table-alert ${tableMsg.type}`}>{tableMsg.text}</div>}
 
           {loading ? (
-            <div className="dash-loading">
+            <div className="dash-loading" style={{ padding: 40 }}>
               <div className="dash-spinner" />
               <p>Loading agents...</p>
             </div>
@@ -470,27 +531,38 @@ export default function Agents() {
                   <button
                     className="dash-page-btn"
                     type="button"
-                    onClick={() => {
-                      isUserPageChangeRef.current = true;
-                      setCurrentPage((p) => Math.max(1, p - 1));
-                    }}
+                    onClick={() => goToPage(currentPage - 1, 'bottom')}
                     disabled={currentPage === 1}
+                    title="Previous page"
                   >
                     <i className="bi bi-chevron-left" /> Prev
                   </button>
 
-                  <span className="dash-page-text">
-                    Page <strong>{currentPage}</strong> of <strong>{totalPages}</strong>
-                  </span>
+                  {pageList.map((p, idx) =>
+                    p === '...' ? (
+                      <span key={`e-${idx}`} className="dash-page-ellipsis">
+                        …
+                      </span>
+                    ) : (
+                      <button
+                        key={p}
+                        type="button"
+                        className={`dash-page-btn dash-page-num ${p === currentPage ? 'active' : ''}`}
+                        onClick={() => goToPage(p, 'top')}
+                        disabled={p === currentPage}
+                        title={`Go to page ${p}`}
+                      >
+                        {p}
+                      </button>
+                    )
+                  )}
 
                   <button
                     className="dash-page-btn"
                     type="button"
-                    onClick={() => {
-                      isUserPageChangeRef.current = true;
-                      setCurrentPage((p) => Math.min(totalPages, p + 1));
-                    }}
+                    onClick={() => goToPage(currentPage + 1, 'top')}
                     disabled={currentPage === totalPages}
+                    title="Next page"
                   >
                     Next <i className="bi bi-chevron-right" />
                   </button>
