@@ -1,11 +1,13 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import * as XLSX from 'xlsx';
 
 import SmartPagination from '../components/SmartPagination';
 import { getPendingSignatures, getPendingPermanentIds } from '../services/assignmentService';
 import { updateEmployeeId } from '../services/agentService';
 import { useAuth } from '../auth/AuthContext';
+import { useListReturnFocus } from '../hooks/useListReturnFocus';
+import { rememberListFocus } from '../utils/listReturnFocus';
 
 import './Dashboard.css';
 import './PendingActions.css';
@@ -46,6 +48,7 @@ function todayStamp() {
 }
 
 export default function PendingActions() {
+  const location = useLocation();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { isAdmin, loading: authLoading } = useAuth();
@@ -62,6 +65,7 @@ export default function PendingActions() {
   const lastIdKeyRef = useRef('');
   const sigTableCardRef = useRef(null);
   const idTableCardRef = useRef(null);
+  const sigRowRefs = useRef({});
 
   const initial = useMemo(() => {
     const initialTab = searchParams.get('tab') === 'ids' ? 'ids' : DEFAULT_TAB;
@@ -117,6 +121,11 @@ export default function PendingActions() {
   const [saving, setSaving] = useState(false);
   const [selected, setSelected] = useState(null);
   const [newEmpId, setNewEmpId] = useState('');
+  const getSignatureRowElement = useCallback((id) => sigRowRefs.current[String(id)], []);
+  const focusedItemId = useListReturnFocus({
+    ready: !loading && tab === 'signatures',
+    getElementForItem: getSignatureRowElement,
+  });
 
   const normalizePendingIdRow = (r) => ({
     id: r.id ?? r.assignmentId ?? r.assignment_id,
@@ -365,6 +374,7 @@ export default function PendingActions() {
       setMessage({ type: 'error', text: 'Assignment ID missing. Refresh and try again.' });
       return;
     }
+    rememberListFocus(location, assignmentId);
     navigate(`/assignments/${assignmentId}/sign`);
   };
 
@@ -647,7 +657,17 @@ export default function PendingActions() {
                     </thead>
                     <tbody>
                       {signatureRowsPage.map((a) => (
-                        <tr key={`ps-${a.id}`}>
+                        <tr
+                          key={`ps-${a.id}`}
+                          ref={(el) => {
+                            if (el) {
+                              sigRowRefs.current[String(a.id)] = el;
+                            } else {
+                              delete sigRowRefs.current[String(a.id)];
+                            }
+                          }}
+                          className={String(a.id) === String(focusedItemId) ? 'dash-row-focused pa-row-focused' : ''}
+                        >
                           <td>{a.id || '—'}</td>
                           <td>{a.agentName || '—'}</td>
                           <td>{a.employeeId || '—'}</td>
