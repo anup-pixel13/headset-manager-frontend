@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import * as XLSX from 'xlsx';
 
 import { getAllAgents, getProcessesForDropdown } from '../services/agentService';
+import SmartPagination from '../components/SmartPagination';
 
 import './Dashboard.css';
 
@@ -32,24 +33,6 @@ function loginStatusToApi(v) {
   if (v === 'active') return 'true';
   if (v === 'inactive') return 'false';
   return '';
-}
-
-function buildPageList(current, total) {
-  const pages = new Set();
-  pages.add(1);
-  pages.add(total);
-  for (let i = current - 1; i <= current + 1; i++) {
-    if (i >= 1 && i <= total) pages.add(i);
-  }
-  const sorted = Array.from(pages).sort((a, b) => a - b);
-  const out = [];
-  let prev = 0;
-  for (const p of sorted) {
-    if (prev && p - prev > 1) out.push('...');
-    out.push(p);
-    prev = p;
-  }
-  return out;
 }
 
 export default function Agents() {
@@ -188,7 +171,7 @@ export default function Agents() {
         const res = await getProcessesForDropdown();
         const arr = res.data?.data || [];
         setProcessOptions([{ id: 'all', name: 'All Processes' }, ...arr.map((p) => ({ id: String(p.id), name: p.name }))]);
-      } catch (e) {
+      } catch {
         // non-blocking
       }
     })();
@@ -310,34 +293,6 @@ export default function Agents() {
       setTableMsg({ type: 'error', text: 'Export failed' });
     }
   };
-
-  // Pagination scroll helpers (same as Dashboard)
-  const scrollToCardTop = () => {
-    const el = tableCardRef.current;
-    if (!el) return;
-    const top = el.getBoundingClientRect().top + window.scrollY - 12;
-    window.scrollTo({ top, left: 0, behavior: 'smooth' });
-  };
-  const scrollToCardBottom = () => {
-    const el = tableCardRef.current;
-    if (!el) return;
-    const rect = el.getBoundingClientRect();
-    const bottom = rect.bottom + window.scrollY - window.innerHeight + 12;
-    window.scrollTo({ top: Math.max(0, bottom), left: 0, behavior: 'smooth' });
-  };
-  const goToPage = (target, anchor = 'top') => {
-    if (target < 1 || target > totalPages || target === currentPage) return;
-    isUserPageChangeRef.current = true;
-    setCurrentPage(target);
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        if (anchor === 'bottom') scrollToCardBottom();
-        else scrollToCardTop();
-      });
-    });
-  };
-
-  const pageList = useMemo(() => buildPageList(currentPage, totalPages), [currentPage, totalPages]);
 
   return (
     <div className="dash-container">
@@ -527,46 +482,17 @@ export default function Agents() {
               </div>
 
               {totalPages > 1 && (
-                <div className="dash-pagination">
-                  <button
-                    className="dash-page-btn"
-                    type="button"
-                    onClick={() => goToPage(currentPage - 1, 'bottom')}
-                    disabled={currentPage === 1}
-                    title="Previous page"
-                  >
-                    <i className="bi bi-chevron-left" /> Prev
-                  </button>
-
-                  {pageList.map((p, idx) =>
-                    p === '...' ? (
-                      <span key={`e-${idx}`} className="dash-page-ellipsis">
-                        …
-                      </span>
-                    ) : (
-                      <button
-                        key={p}
-                        type="button"
-                        className={`dash-page-btn dash-page-num ${p === currentPage ? 'active' : ''}`}
-                        onClick={() => goToPage(p, 'top')}
-                        disabled={p === currentPage}
-                        title={`Go to page ${p}`}
-                      >
-                        {p}
-                      </button>
-                    )
-                  )}
-
-                  <button
-                    className="dash-page-btn"
-                    type="button"
-                    onClick={() => goToPage(currentPage + 1, 'top')}
-                    disabled={currentPage === totalPages}
-                    title="Next page"
-                  >
-                    Next <i className="bi bi-chevron-right" />
-                  </button>
-                </div>
+                <SmartPagination
+                  currentPage={currentPage}
+                  totalPages={totalPages}
+                  onPageChange={(targetPage, anchor) => {
+                    void anchor;
+                    isUserPageChangeRef.current = true;
+                    setCurrentPage(targetPage);
+                  }}
+                  scrollTargetRef={tableCardRef}
+                  className="dash-pagination"
+                />
               )}
             </>
           )}

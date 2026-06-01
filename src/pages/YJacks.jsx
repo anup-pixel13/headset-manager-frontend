@@ -1,7 +1,8 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import * as XLSX from 'xlsx';
 
+import SmartPagination from '../components/SmartPagination';
 import { getYJacks, assignYJack, unassignYJack } from '../services/yjackService';
 import './YJacks.css';
 
@@ -17,6 +18,7 @@ function toPositiveInt(value, fallback) {
 export default function YJacks() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
+  const tableCardRef = useRef(null);
 
   const initial = useMemo(() => {
     const search = searchParams.get('search') || '';
@@ -244,7 +246,7 @@ export default function YJacks() {
         {loading ? (
           <div className="yjack-card">Loading...</div>
         ) : (
-          <div className="yjack-card">
+          <div className="yjack-card" ref={tableCardRef}>
             <div className="yjack-meta">
               Total: <b>{total}</b> | Page <b>{page}</b> / <b>{totalPages}</b>
             </div>
@@ -295,17 +297,16 @@ export default function YJacks() {
             </div>
 
             {totalPages > 1 && (
-              <div className="yjack-pagination">
-                <button className="yjack-btn small" type="button" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1}>
-                  Prev
-                </button>
-                <span>
-                  Page <b>{page}</b> of <b>{totalPages}</b>
-                </span>
-                <button className="yjack-btn small" type="button" onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page === totalPages}>
-                  Next
-                </button>
-              </div>
+              <SmartPagination
+                currentPage={page}
+                totalPages={totalPages}
+                onPageChange={(targetPage, anchor) => {
+                  void anchor;
+                  setPage(targetPage);
+                }}
+                scrollTargetRef={tableCardRef}
+                className="yjack-pagination"
+              />
             )}
           </div>
         )}

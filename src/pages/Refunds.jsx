@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import * as XLSX from 'xlsx';
 
+import SmartPagination from '../components/SmartPagination';
 import { formatHeadsetType } from '../utils/headsetFormat';
 import { getAllRefundRequests, processRefundRequest, markRefundNotEligible, reopenRefundRequest } from '../services/refundService';
 
@@ -53,6 +54,7 @@ export default function Refunds() {
   const isUserPageChangeRef = useRef(false);
   const didFilterOnceRef = useRef(false);
   const lastKeyRef = useRef('');
+  const tableCardRef = useRef(null);
 
   // initial from URL
   const initial = useMemo(() => {
@@ -430,7 +432,7 @@ export default function Refunds() {
           ))}
         </div>
 
-        <div className="refunds-table-card">
+        <div className="refunds-table-card" ref={tableCardRef}>
           <div className="refunds-table-top">
             <div className="refunds-table-title">
               <h2>
@@ -611,35 +613,17 @@ export default function Refunds() {
               </div>
 
               {totalPages > 1 && (
-                <div className="refunds-pagination">
-                  <button
-                    className="refunds-page-btn"
-                    type="button"
-                    onClick={() => {
-                      isUserPageChangeRef.current = true;
-                      setCurrentPage((p) => Math.max(1, p - 1));
-                    }}
-                    disabled={currentPage === 1}
-                  >
-                    <i className="bi bi-chevron-left" /> Prev
-                  </button>
-
-                  <span className="refunds-page-text">
-                    Page <strong>{currentPage}</strong> of <strong>{totalPages}</strong>
-                  </span>
-
-                  <button
-                    className="refunds-page-btn"
-                    type="button"
-                    onClick={() => {
-                      isUserPageChangeRef.current = true;
-                      setCurrentPage((p) => Math.min(totalPages, p + 1));
-                    }}
-                    disabled={currentPage === totalPages}
-                  >
-                    Next <i className="bi bi-chevron-right" />
-                  </button>
-                </div>
+                <SmartPagination
+                  currentPage={currentPage}
+                  totalPages={totalPages}
+                  onPageChange={(targetPage, anchor) => {
+                    void anchor;
+                    isUserPageChangeRef.current = true;
+                    setCurrentPage(targetPage);
+                  }}
+                  scrollTargetRef={tableCardRef}
+                  className="refunds-pagination"
+                />
               )}
             </>
           )}
