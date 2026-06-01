@@ -47,7 +47,6 @@ function useDebouncedValue(value, delayMs) {
 
 const norm = (v) => String(v || '').trim().toLowerCase();
 
-// ✅ FIXED: only treat actual "on_hold" values as hold
 function isOnHold(a) {
   const hs = norm(a?.holdStatus);
   if (!hs || hs === 'none' || hs === 'no_hold' || hs === 'not_on_hold') return false;
@@ -60,7 +59,6 @@ function formatMoney(v) {
   return n.toFixed(2);
 }
 
-// Build a small page-number list with ellipses (e.g. 1 … 4 5 [6] 7 8 … 20)
 function buildPageList(current, total) {
   const pages = new Set();
   pages.add(1);
@@ -83,9 +81,6 @@ export default function Dashboard() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
 
-  // ============================================
-  // REFS
-  // ============================================
   const isInitialMountRef = useRef(true);
   const isSyncingFromUrlRef = useRef(false);
   const urlInitializedRef = useRef(false);
@@ -94,12 +89,8 @@ export default function Dashboard() {
   const didFilterOnceRef = useRef(false);
   const lastKeyRef = useRef('');
 
-  // Element refs for in-page scroll anchoring (no full-page jumps)
   const tableCardRef = useRef(null);
 
-  // ============================================
-  // GET INITIAL STATE FROM URL
-  // ============================================
   const initial = useMemo(() => {
     const startDate = searchParams.get('startDate') || DEFAULT_START;
     const endDate = searchParams.get('endDate') || DEFAULT_TODAY;
@@ -113,9 +104,6 @@ export default function Dashboard() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ============================================
-  // STATE
-  // ============================================
   const [statsLoading, setStatsLoading] = useState(true);
   const [tableMsg, setTableMsg] = useState({ type: '', text: '' });
   const [stats, setStats] = useState(null);
@@ -134,17 +122,15 @@ export default function Dashboard() {
   const [currentPage, setCurrentPage] = useState(initial.page);
   const [itemsPerPage, setItemsPerPage] = useState(initial.perPage);
 
-  // ✅ debounce search so API doesn't fire on every keystroke
-  const debouncedSearchTerm = useDebouncedValue(searchTerm, 300);
+  // debounce so typing is smooth
+  const debouncedSearchTerm = useDebouncedValue(searchTerm, 400);
 
-  // track initial prev page for URL replace/push behavior
   useEffect(() => {
     if (prevPageRef.current === null) prevPageRef.current = initial.page;
   }, [initial.page]);
 
   // ============================================
-  // URL -> state (only update if value really changed; prevents re-renders that
-  // can cause focus loss in inputs)
+  // URL -> state (guarded so we don't churn state)
   // ============================================
   useEffect(() => {
     if (isInitialMountRef.current) {
@@ -167,6 +153,8 @@ export default function Dashboard() {
     setDateFilter((prev) =>
       prev.startDate === startDate && prev.endDate === endDate ? prev : { startDate, endDate }
     );
+    // IMPORTANT: do not overwrite searchTerm while user is typing.
+    // Only sync if URL has a different value than current.
     setSearchTerm((prev) => (prev === search ? prev : search));
     setProcessId((prev) => (prev === process ? prev : process));
     const safeStatus = ['active', 'inactive', 'all'].includes(status) ? status : DEFAULT_STATUS;
@@ -182,7 +170,7 @@ export default function Dashboard() {
   }, [searchParams]);
 
   // ============================================
-  // state -> URL
+  // state -> URL  (use DEBOUNCED search so URL doesn't update on every keystroke)
   // ============================================
   useEffect(() => {
     if (isSyncingFromUrlRef.current || !urlInitializedRef.current) return;
@@ -192,7 +180,7 @@ export default function Dashboard() {
     p.set('startDate', dateFilter.startDate || DEFAULT_START);
     p.set('endDate', dateFilter.endDate || DEFAULT_TODAY);
 
-    if (searchTerm) p.set('search', searchTerm);
+    if (debouncedSearchTerm) p.set('search', debouncedSearchTerm);
     if (processId !== 'all') p.set('processId', String(processId));
     if (assignmentStatus !== DEFAULT_STATUS) p.set('status', assignmentStatus);
 
@@ -211,7 +199,7 @@ export default function Dashboard() {
   }, [
     dateFilter.startDate,
     dateFilter.endDate,
-    searchTerm,
+    debouncedSearchTerm,
     processId,
     assignmentStatus,
     currentPage,
@@ -220,9 +208,6 @@ export default function Dashboard() {
     searchParams,
   ]);
 
-  // ============================================
-  // stats (date range)
-  // ============================================
   useEffect(() => {
     (async () => {
       try {
@@ -239,9 +224,6 @@ export default function Dashboard() {
     })();
   }, [dateFilter.startDate, dateFilter.endDate]);
 
-  // ============================================
-  // Reset page to 1 when filters change (not URL sync)
-  // ============================================
   useEffect(() => {
     const key = `${debouncedSearchTerm}||${processId}||${assignmentStatus}||${dateFilter.startDate}||${dateFilter.endDate}`;
     const keyChanged = lastKeyRef.current !== key;
@@ -255,9 +237,6 @@ export default function Dashboard() {
     lastKeyRef.current = key;
   }, [debouncedSearchTerm, processId, assignmentStatus, dateFilter.startDate, dateFilter.endDate]);
 
-  // ============================================
-  // Fetch assignments (server paginated)
-  // ============================================
   const fetchAssignments = async () => {
     const res = await getAllAssignments({
       search: debouncedSearchTerm || '',
@@ -320,9 +299,6 @@ export default function Dashboard() {
     if (currentPage > totalPages && !isSyncingFromUrlRef.current) setCurrentPage(totalPages);
   }, [totalPages, currentPage]);
 
-  // ============================================
-  // Export
-  // ============================================
   const hasActiveFilters =
     searchTerm.trim() !== '' ||
     processId !== 'all' ||
@@ -430,21 +406,15 @@ export default function Dashboard() {
     }
   };
 
-  // ============================================
-  // PDF actions (kept — used by the per-row buttons if you re-add later)
-  // ============================================
   const openUrl = (url) => {
     if (!url) return;
     window.open(url, '_blank', 'noopener,noreferrer');
   };
 
-  // ============================================
-  // Pagination scroll helpers
-  // ============================================
   const scrollToCardTop = () => {
     const el = tableCardRef.current;
     if (!el) return;
-    const top = el.getBoundingClientRect().top + window.scrollY - 12; // small offset, not at very top
+    const top = el.getBoundingClientRect().top + window.scrollY - 12;
     window.scrollTo({ top, left: 0, behavior: 'smooth' });
   };
 
@@ -460,7 +430,6 @@ export default function Dashboard() {
     if (target < 1 || target > totalPages || target === currentPage) return;
     isUserPageChangeRef.current = true;
     setCurrentPage(target);
-    // Wait a tick so the new page mounts before we scroll
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
         if (anchor === 'bottom') scrollToCardBottom();
@@ -471,9 +440,6 @@ export default function Dashboard() {
 
   const pageList = useMemo(() => buildPageList(currentPage, totalPages), [currentPage, totalPages]);
 
-  // ============================================
-  // Tiles
-  // ============================================
   const tiles = [
     {
       label: 'In Stock',
@@ -509,7 +475,6 @@ export default function Dashboard() {
 
   const loading = statsLoading || tableLoading;
 
-  // void openUrl to keep it referenced in lint if PDFs are reintroduced later
   void openUrl;
 
   return (

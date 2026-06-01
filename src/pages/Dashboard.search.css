@@ -1,0 +1,55 @@
+/* Search clear button + pagination num button styles
+   (appended via Dashboard.css import chain — but kept in a dedicated file for clarity).
+   We import this from Dashboard.css using @import. */
+
+.dash-search input{
+  padding-right: 40px !important; /* room for clear button */
+}
+
+.dash-search-clear{
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 26px;
+  height: 26px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 50%;
+  background: #e5e7eb;
+  color: #374151;
+  cursor: pointer;
+  padding: 0;
+  line-height: 1;
+  z-index: 2;
+}
+.dash-search-clear:hover{
+  background: #ef4444;
+  color: #fff;
+}
+.dash-search-clear i{
+  position: static !important;
+  transform: none !important;
+  color: inherit !important;
+  font-size: 12px;
+  left: auto !important;
+  top: auto !important;
+}
+
+.dash-page-num{
+  min-width: 40px;
+  text-align: center;
+}
+.dash-page-num.active{
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: #fff;
+  border-color: transparent;
+  opacity: 1 !important;
+}
+.dash-page-ellipsis{
+  padding: 0 6px;
+  color: #9ca3af;
+  font-weight: 800;
+}
