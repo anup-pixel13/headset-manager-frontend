@@ -1,0 +1,144 @@
+.hah-container {
+  min-height: 100vh;
+  background-image: url('../assets/manage.jpg');
+  background-size: cover;
+  background-position: center;
+  background-attachment: fixed;
+  padding: 100px 20px 60px;
+  position: relative;
+  overflow-x: hidden;
+}
+
+.hah-container::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, rgba(102, 126, 234, 0.7) 0%, rgba(118, 75, 162, 0.7) 100%);
+  z-index: 0;
+}
+
+.hah-content {
+  max-width: 1200px;
+  margin: 0 auto;
+  position: relative;
+  z-index: 1;
+  font-family: 'Trebuchet MS', Verdana, sans-serif;
+}
+
+.hah-header-card,
+.hah-card,
+.hah-state-card {
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(20px);
+  border-radius: 20px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.15);
+  border: 2px solid rgba(255, 255, 255, 0.5);
+}
+
+.hah-header-card {
+  padding: 28px;
+  margin-bottom: 20px;
+  display: flex;
+  justify-content: space-between;
+  gap: 20px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.hah-title {
+  font-size: 2rem;
+  font-weight: 700;
+  margin: 0 0 6px 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.hah-subtitle { margin: 0; color: #6b7280; font-size: 0.95rem; }
+
+.hah-header-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+
+.hah-action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 11px 18px;
+  border: none;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.hah-action-btn.secondary {
+  background: linear-gradient(135deg, #e0e7ff 0%, #ddd6fe 100%);
+  color: #3730a3;
+}
+
+.hah-card { padding: 18px; }
+
+.hah-card-top {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.hah-table-wrap { overflow: auto; border-radius: 12px; border: 2px solid #f3f4f6; }
+
+.hah-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 960px;
+}
+
+.hah-table th,
+.hah-table td {
+  padding: 12px 14px;
+  border-bottom: 1px solid #f3f4f6;
+  text-align: left;
+}
+
+.hah-table th { background: rgba(102, 126, 234, 0.08); font-weight: 800; }
+.hah-table tbody tr:hover { background: rgba(102, 126, 234, 0.05); }
+
+.hah-pill {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-weight: 900;
+  font-size: 0.82rem;
+  border: 1px solid transparent;
+}
+
+.hah-pill.ok { background: #dcfce7; color: #065f46; border-color: #bbf7d0; }
+.hah-pill.warn { background: #fef9c3; color: #854d0e; border-color: #fde68a; }
+.hah-pill.bad { background: #fee2e2; color: #991b1b; border-color: #fecaca; }
+.hah-pill.info { background: #dbeafe; color: #1e3a8a; border-color: #bfdbfe; }
+
+.hah-state-card {
+  padding: 42px 20px;
+  text-align: center;
+}
+
+.hah-state-icon { font-size: 2.4rem; color: #f59e0b; }
+.hah-state-card h2 { margin: 12px 0 6px; }
+.hah-state-card p { margin: 0; color: #6b7280; }
+
+.hah-state-actions {
+  margin-top: 16px;
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+@media (max-width: 768px) {
+  .hah-container { padding: 80px 15px 40px; }
+}
