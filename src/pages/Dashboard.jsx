@@ -399,6 +399,54 @@ export default function Dashboard() {
     }
   };
 
+  const openUrl = (url) => {
+    if (!url) return;
+    window.open(url, '_blank', 'noopener,noreferrer');
+  };
+
+  const handleGeneratePdf = async (assignmentId) => {
+    try {
+      setTableMsg({ type: '', text: '' });
+      setAssignments((prev) => prev.map((x) => (x.id === assignmentId ? { ...x, _pdfGenerating: true } : x)));
+
+      const res = await generateDepositFormPdf(assignmentId);
+
+      const viewUrl = res.data?.data?.viewUrl || null;
+      const downloadUrl = res.data?.data?.downloadUrl || null;
+      const fileName = res.data?.data?.fileName || null;
+      const filePath = res.data?.data?.filePath || null;
+
+      const depositPdf =
+        viewUrl || downloadUrl || filePath
+          ? {
+              viewUrl: viewUrl || filePath,
+              downloadUrl: downloadUrl || (filePath ? `${filePath}?download=1` : null),
+              fileName,
+              filePath,
+              generatedAt: res.data?.data?.generatedAt || null,
+              documentType: res.data?.data?.documentType || null,
+            }
+          : null;
+
+      setAssignments((prev) =>
+        prev.map((x) =>
+          x.id === assignmentId ? { ...x, depositPdf: depositPdf || x.depositPdf, _pdfGenerating: false } : x
+        )
+      );
+
+      if (depositPdf?.viewUrl) openUrl(depositPdf.viewUrl);
+
+      setTableMsg({ type: 'success', text: `PDF generated for Assignment #${assignmentId}.` });
+    } catch (e) {
+      console.error(e);
+      setAssignments((prev) => prev.map((x) => (x.id === assignmentId ? { ...x, _pdfGenerating: false } : x)));
+      setTableMsg({
+        type: 'error',
+        text: e?.response?.data?.message || 'Failed to generate deposit PDF.',
+      });
+    }
+  };
+
   const scrollToCardTop = () => {
     const el = tableCardRef.current;
     if (!el) return;
@@ -671,6 +719,7 @@ export default function Dashboard() {
                       <th>Paid Dep</th>
 
                       <th>Remark</th>
+                      <th>PDF Actions</th>
                     </tr>
                   </thead>
 
@@ -679,6 +728,16 @@ export default function Dashboard() {
                       const hold = isOnHold(a);
                       const inactive = a?.isActive === false;
                       const rowClass = `${inactive ? 'dash-row-inactive' : ''} ${hold ? 'dash-row-hold' : ''}`.trim();
+                      const viewDisabled = !a.depositPdf?.viewUrl;
+                      const downloadDisabled = !a.depositPdf?.downloadUrl;
+                      const generateDisabled = !a.canGenerateDepositPdf || !!a.depositPdf?.viewUrl || !!a._pdfGenerating;
+                      const generateTitle = a.depositPdf?.viewUrl
+                        ? 'PDF already generated'
+                        : !a.canGenerateDepositPdf
+                          ? !a.hasPermanentEmployeeId
+                            ? 'Update permanent employee ID first (AIPL...)'
+                            : 'Collect signatures first'
+                          : 'Generate PDF';
 
                       return (
                         <tr key={a.id} className={rowClass}>
@@ -724,13 +783,44 @@ export default function Dashboard() {
                           <td style={{ maxWidth: 320 }}>
                             <span title={a.systemRemark || ''}>{a.systemRemark || '—'}</span>
                           </td>
+                          <td>
+                            <div className="dash-pdf-actions">
+                              <button
+                                type="button"
+                                className="dash-row-btn pdf-generate"
+                                disabled={generateDisabled}
+                                title={generateTitle}
+                                onClick={() => handleGeneratePdf(a.id)}
+                              >
+                                {a._pdfGenerating ? 'Generating...' : 'Generate'}
+                              </button>
+                              <button
+                                type="button"
+                                className="dash-row-btn pdf-view"
+                                disabled={viewDisabled}
+                                title={viewDisabled ? 'Generate PDF first' : 'View PDF'}
+                                onClick={() => openUrl(a.depositPdf?.viewUrl)}
+                              >
+                                View
+                              </button>
+                              <button
+                                type="button"
+                                className="dash-row-btn pdf-download"
+                                disabled={downloadDisabled}
+                                title={downloadDisabled ? 'Generate PDF first' : 'Download PDF'}
+                                onClick={() => openUrl(a.depositPdf?.downloadUrl)}
+                              >
+                                Download
+                              </button>
+                            </div>
+                          </td>
                         </tr>
                       );
                     })}
 
                     {assignments.length === 0 && (
                       <tr>
-                        <td colSpan={15} style={{ textAlign: 'center', padding: 20 }}>
+                        <td colSpan={16} style={{ textAlign: 'center', padding: 20 }}>
                           No assignments found
                         </td>
                       </tr>
