@@ -1,3 +1,5 @@
+const FOCUS_DATA_TTL_MS = 10 * 60 * 1000;
+
 function makeKey(location) {
   return `listFocus:${location?.pathname || ''}${location?.search || ''}`;
 }
@@ -29,7 +31,7 @@ export function consumeListFocus(location) {
 
     const parsed = JSON.parse(raw);
     if (!parsed?.itemId) return null;
-    if (Date.now() - (parsed.ts || 0) > 10 * 60 * 1000) return null;
+    if (Date.now() - (parsed.ts || 0) > FOCUS_DATA_TTL_MS) return null;
 
     return parsed;
   } catch {

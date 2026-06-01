@@ -3,6 +3,8 @@ import { useLocation } from 'react-router-dom';
 
 import { consumeListFocus } from '../utils/listReturnFocus';
 
+const FOCUS_HIGHLIGHT_DURATION_MS = 4000;
+
 export function useListReturnFocus({ ready, getElementForItem }) {
   const location = useLocation();
   const [focusedItemId, setFocusedItemId] = useState(null);
@@ -29,7 +31,7 @@ export function useListReturnFocus({ ready, getElementForItem }) {
           window.scrollTo({ top: saved.scrollY, left: 0, behavior: 'smooth' });
         }
 
-        clearTimer = window.setTimeout(() => setFocusedItemId(null), 4000);
+        clearTimer = window.setTimeout(() => setFocusedItemId(null), FOCUS_HIGHLIGHT_DURATION_MS);
       });
     });
 
