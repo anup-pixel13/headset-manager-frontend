@@ -217,269 +217,303 @@ export default function AssignmentSign() {
   const showMtAlreadyExistsBanner = useMemo(() => showAlreadyExists(mtRole), [mtRole, roleWasSignedInitially]);
 
   return (
-    <div className="asign-container">
-      <div className="container asign-content">
-        <div className="asign-top">
-          <button className="asign-btn" onClick={() => navigate('/pending')} type="button">
-            ← Back to Pending
-          </button>
-          <div className="asign-right">
-            <button className="asign-btn secondary" onClick={refreshStatus} type="button">
-              Refresh
+    <div className="assign-sign-container">
+      <div className="assign-sign-content">
+
+        {/* ── Header card ── */}
+        <div className="assign-sign-header-card">
+          <div className="assign-sign-header-left">
+            <h1 className="assign-sign-title">
+              <i className="bi bi-pen" /> Collect Signatures — Assignment #{assignmentId}
+            </h1>
+            <p className="assign-sign-subtitle">
+              Required: Agent + Admin Executive + IT Staff + (Manager OR TL).
+              Deposit PDF is enabled only after completion + permanent employee ID.
+            </p>
+          </div>
+          <div className="assign-sign-header-actions">
+            <button className="assign-sign-btn secondary" onClick={() => navigate('/pending')} type="button">
+              ← Back to Pending
+            </button>
+            <button className="assign-sign-btn" onClick={refreshStatus} type="button">
+              <i className="bi bi-arrow-clockwise" /> Refresh
             </button>
           </div>
         </div>
 
-        <div className="asign-card">
-          <h2 className="asign-title">Collect Signatures — Assignment #{assignmentId}</h2>
-          <p className="asign-sub">
-            Required: Agent + Admin Executive + IT Staff + (Manager OR TL).
-            Deposit PDF is enabled only after completion + permanent employee ID.
-          </p>
+        {/* ── Global alert ── */}
+        {message.text && (
+          <div className={`assign-sign-alert ${message.type}`}>
+            {message.text}
+          </div>
+        )}
 
-          {details && (
-            <div className="asign-meta">
-              <div><b>Agent:</b> {details.agent_name} ({details.employee_id || 'N/A'})</div>
-              <div><b>Headset:</b> {details.headset_number} ({details.headset_type})</div>
-              <div><b>TL:</b> {details.tl_name}</div>
-              <div><b>Manager:</b> {details.manager_name}</div>
+        {/* ── Loading state ── */}
+        {(authLoading || loading) ? (
+          <div className="assign-sign-loading">
+            <div className="assign-sign-spinner" />
+            <p>Loading assignment details…</p>
+          </div>
+        ) : (
+          <>
+            {/* ── Status + meta card ── */}
+            <div className="assign-sign-card">
+              <h2 className="assign-sign-card-title">
+                <i className="bi bi-info-circle" /> Assignment Overview
+              </h2>
+
+              {details && (
+                <div className="assign-sign-meta">
+                  <div><b>Agent:</b> {details.agent_name} ({details.employee_id || 'N/A'})</div>
+                  <div><b>Headset:</b> {details.headset_number} ({details.headset_type})</div>
+                  <div><b>TL:</b> {details.tl_name}</div>
+                  <div><b>Manager:</b> {details.manager_name}</div>
+                </div>
+              )}
+
+              <div className="assign-sign-status-row" style={{ marginTop: 12 }}>
+                <span className={`assign-sign-pill ${status?.status?.agent ? 'ok' : 'bad'}`}>
+                  {status?.status?.agent ? '✓' : '✗'} Agent
+                </span>
+                <span className={`assign-sign-pill ${status?.status?.admin_exec ? 'ok' : 'bad'}`}>
+                  {status?.status?.admin_exec ? '✓' : '✗'} Admin Exec
+                </span>
+                <span className={`assign-sign-pill ${status?.status?.it_staff ? 'ok' : 'bad'}`}>
+                  {status?.status?.it_staff ? '✓' : '✗'} IT Staff
+                </span>
+                <span className={`assign-sign-pill ${status?.status?.manager ? 'ok' : 'bad'}`}>
+                  {status?.status?.manager ? '✓' : '✗'} Manager
+                </span>
+                <span className={`assign-sign-pill ${status?.status?.tl ? 'ok' : 'bad'}`}>
+                  {status?.status?.tl ? '✓' : '✗'} TL
+                </span>
+                <span className={`assign-sign-pill ${isCompleteForPdf ? 'ok' : 'warn'}`}>
+                  <i className={`bi ${isCompleteForPdf ? 'bi-file-earmark-check' : 'bi-file-earmark-x'}`} />
+                  PDF Ready: {isCompleteForPdf ? 'YES' : 'NO'}
+                </span>
+              </div>
             </div>
-          )}
 
-          {message.text && (
-            <div className={`asign-alert ${message.type}`}>
-              {message.text}
+            {/* ── 1) Agent Signature ── */}
+            <div className="assign-sign-card">
+              <h2 className="assign-sign-card-title">
+                <i className="bi bi-person" /> 1) Agent Signature
+              </h2>
+
+              {showAlreadyExists('agent') && (
+                <div className="assign-sign-alert info">
+                  Agent signature already exists. You can still overwrite by saving again.
+                </div>
+              )}
+
+              <div className="assign-sign-row">
+                <div className="assign-sign-field">
+                  <label>Agent Name *</label>
+                  <input
+                    value={agentName}
+                    onChange={(e) => setAgentName(e.target.value)}
+                    placeholder="Agent name"
+                  />
+                </div>
+                <div className="assign-sign-field">
+                  <label>Upload Signature (optional)</label>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => setAgentUploadFile(e.target.files?.[0] || null)}
+                  />
+                </div>
+              </div>
+
+              <div className="assign-sign-pad-wrap">
+                <SignatureCanvas ref={agentSigRef} penColor="black" canvasProps={{ className: 'assign-sign-pad' }} />
+                <div className="assign-sign-pad-actions">
+                  <button type="button" className="assign-sign-btn small secondary" onClick={() => clearPad(agentSigRef)}>
+                    Clear
+                  </button>
+                  <button
+                    type="button"
+                    className="assign-sign-btn small primary"
+                    onClick={() =>
+                      submitSignature({
+                        signer_role: 'agent',
+                        signer_name: agentName,
+                        fileFromUpload: agentUploadFile,
+                        padRef: agentSigRef,
+                      })
+                    }
+                  >
+                    Save Agent Signature
+                  </button>
+                </div>
+              </div>
             </div>
-          )}
 
-          {loading ? (
-            <div>Loading...</div>
-          ) : (
-            <>
-              <div className="asign-status">
-                <div><b>Agent:</b> {status?.status?.agent ? '✅' : '❌'}</div>
-                <div><b>Admin Exec:</b> {status?.status?.admin_exec ? '✅' : '❌'}</div>
-                <div><b>IT Staff:</b> {status?.status?.it_staff ? '✅' : '❌'}</div>
-                <div><b>Manager:</b> {status?.status?.manager ? '✅' : '❌'}</div>
-                <div><b>TL:</b> {status?.status?.tl ? '✅' : '❌'}</div>
-                <div className={`asign-pdf ${isCompleteForPdf ? 'ok' : 'no'}`}>
-                  <b>PDF Ready (signatures only):</b> {isCompleteForPdf ? 'YES' : 'NO'}
+            {/* ── 2) Admin Executive Signature ── */}
+            <div className="assign-sign-card">
+              <h2 className="assign-sign-card-title">
+                <i className="bi bi-person-badge" /> 2) Admin Executive Signature
+              </h2>
+
+              {showAlreadyExists('admin_exec') && (
+                <div className="assign-sign-alert info">
+                  Admin Executive signature already exists. You can still overwrite by saving again.
+                </div>
+              )}
+
+              <div className="assign-sign-row">
+                <div className="assign-sign-field">
+                  <label>Admin Executive Name *</label>
+                  <input
+                    value={adminExecSignerName}
+                    onChange={(e) => setAdminExecSignerName(e.target.value)}
+                    placeholder="Admin Executive name"
+                  />
                 </div>
               </div>
 
-              {/* 1) Agent */}
-              <div className="asign-section">
-                <h3>1) Agent Signature</h3>
-
-                {showAlreadyExists('agent') && (
-                  <div className="asign-alert info">
-                    Agent signature already exists. You can still overwrite by saving again.
-                  </div>
-                )}
-
-                <div className="asign-row">
-                  <div className="asign-field">
-                    <label>Agent Name *</label>
-                    <input
-                      value={agentName}
-                      onChange={(e) => setAgentName(e.target.value)}
-                      placeholder="Agent name"
-                    />
-                  </div>
-                  <div className="asign-field">
-                    <label>Upload Signature (optional)</label>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={(e) => setAgentUploadFile(e.target.files?.[0] || null)}
-                    />
-                  </div>
+              <div className="assign-sign-pad-wrap">
+                <SignatureCanvas ref={adminExecSigRef} penColor="black" canvasProps={{ className: 'assign-sign-pad' }} />
+                <div className="assign-sign-pad-actions">
+                  <button type="button" className="assign-sign-btn small secondary" onClick={() => clearPad(adminExecSigRef)}>
+                    Clear
+                  </button>
+                  <button
+                    type="button"
+                    className="assign-sign-btn small primary"
+                    onClick={() =>
+                      submitSignature({
+                        signer_role: 'admin_exec',
+                        signer_name: adminExecSignerName,
+                        fileFromUpload: null,
+                        padRef: adminExecSigRef,
+                      })
+                    }
+                  >
+                    Save Admin Exec Signature
+                  </button>
                 </div>
+              </div>
+            </div>
 
-                <div className="asign-pad-wrap">
-                  <SignatureCanvas ref={agentSigRef} penColor="black" canvasProps={{ className: 'asign-pad' }} />
-                  <div className="asign-pad-actions">
-                    <button type="button" className="asign-btn small" onClick={() => clearPad(agentSigRef)}>
-                      Clear
-                    </button>
-                    <button
-                      type="button"
-                      className="asign-btn small primary"
-                      onClick={() =>
-                        submitSignature({
-                          signer_role: 'agent',
-                          signer_name: agentName,
-                          fileFromUpload: agentUploadFile,
-                          padRef: agentSigRef,
-                        })
-                      }
-                    >
-                      Save Agent Signature
-                    </button>
-                  </div>
+            {/* ── 3) IT Staff Signature ── */}
+            <div className="assign-sign-card">
+              <h2 className="assign-sign-card-title">
+                <i className="bi bi-laptop" /> 3) IT Staff Signature
+              </h2>
+
+              {showAlreadyExists('it_staff') && (
+                <div className="assign-sign-alert info">
+                  IT Staff signature already exists. You can still overwrite by saving again.
+                </div>
+              )}
+
+              <div className="assign-sign-row">
+                <div className="assign-sign-field">
+                  <label>IT Staff Name *</label>
+                  <input
+                    value={itSignerName}
+                    onChange={(e) => setItSignerName(e.target.value)}
+                    placeholder="IT Staff name"
+                  />
+                </div>
+                <div className="assign-sign-field">
+                  <label>Upload Signature (optional)</label>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => setItUploadFile(e.target.files?.[0] || null)}
+                  />
                 </div>
               </div>
 
-              {/* 2) Admin Executive */}
-              <div className="asign-section">
-                <h3>2) Admin Executive Signature</h3>
+              <div className="assign-sign-pad-wrap">
+                <SignatureCanvas ref={itSigRef} penColor="black" canvasProps={{ className: 'assign-sign-pad' }} />
+                <div className="assign-sign-pad-actions">
+                  <button type="button" className="assign-sign-btn small secondary" onClick={() => clearPad(itSigRef)}>
+                    Clear
+                  </button>
+                  <button
+                    type="button"
+                    className="assign-sign-btn small primary"
+                    onClick={() =>
+                      submitSignature({
+                        signer_role: 'it_staff',
+                        signer_name: itSignerName,
+                        fileFromUpload: itUploadFile,
+                        padRef: itSigRef,
+                      })
+                    }
+                  >
+                    Save IT Staff Signature
+                  </button>
+                </div>
+              </div>
+            </div>
 
-                {showAlreadyExists('admin_exec') && (
-                  <div className="asign-alert info">
-                    Admin Executive signature already exists. You can still overwrite by saving again.
-                  </div>
-                )}
+            {/* ── 4) Manager OR TL Signature ── */}
+            <div className="assign-sign-card">
+              <h2 className="assign-sign-card-title">
+                <i className="bi bi-person-check" /> 4) Manager OR TL Signature
+              </h2>
 
-                <div className="asign-row">
-                  <div className="asign-field">
-                    <label>Admin Executive Name *</label>
-                    <input
-                      value={adminExecSignerName}
-                      onChange={(e) => setAdminExecSignerName(e.target.value)}
-                      placeholder="Admin Executive name"
-                    />
-                  </div>
+              {showMtAlreadyExistsBanner && (
+                <div className="assign-sign-alert info">
+                  {mtRole === 'manager'
+                    ? 'Manager signature already exists. You can still overwrite by saving again.'
+                    : 'TL signature already exists. You can still overwrite by saving again.'}
+                </div>
+              )}
+
+              <div className="assign-sign-row">
+                <div className="assign-sign-field">
+                  <label>Signer Role *</label>
+                  <select value={mtRole} onChange={(e) => setMtRole(e.target.value)}>
+                    <option value="manager">Manager</option>
+                    <option value="tl">TL</option>
+                  </select>
                 </div>
 
-                <div className="asign-pad-wrap">
-                  <SignatureCanvas ref={adminExecSigRef} penColor="black" canvasProps={{ className: 'asign-pad' }} />
-                  <div className="asign-pad-actions">
-                    <button type="button" className="asign-btn small" onClick={() => clearPad(adminExecSigRef)}>
-                      Clear
-                    </button>
-                    <button
-                      type="button"
-                      className="asign-btn small primary"
-                      onClick={() =>
-                        submitSignature({
-                          signer_role: 'admin_exec',
-                          signer_name: adminExecSignerName,
-                          fileFromUpload: null,
-                          padRef: adminExecSigRef,
-                        })
-                      }
-                    >
-                      Save Admin Exec Signature
-                    </button>
-                  </div>
+                <div className="assign-sign-field">
+                  <label>{mtRole === 'manager' ? 'Manager Name *' : 'TL Name *'}</label>
+                  <input value={mtName} disabled />
+                </div>
+
+                <div className="assign-sign-field">
+                  <label>Upload Signature (optional)</label>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => setMtUploadFile(e.target.files?.[0] || null)}
+                  />
                 </div>
               </div>
 
-              {/* 3) IT Staff */}
-              <div className="asign-section">
-                <h3>3) IT Staff Signature</h3>
-
-                {showAlreadyExists('it_staff') && (
-                  <div className="asign-alert info">
-                    IT Staff signature already exists. You can still overwrite by saving again.
-                  </div>
-                )}
-
-                <div className="asign-row">
-                  <div className="asign-field">
-                    <label>IT Staff Name *</label>
-                    <input
-                      value={itSignerName}
-                      onChange={(e) => setItSignerName(e.target.value)}
-                      placeholder="IT Staff name"
-                    />
-                  </div>
-                  <div className="asign-field">
-                    <label>Upload Signature (optional)</label>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={(e) => setItUploadFile(e.target.files?.[0] || null)}
-                    />
-                  </div>
-                </div>
-
-                <div className="asign-pad-wrap">
-                  <SignatureCanvas ref={itSigRef} penColor="black" canvasProps={{ className: 'asign-pad' }} />
-                  <div className="asign-pad-actions">
-                    <button type="button" className="asign-btn small" onClick={() => clearPad(itSigRef)}>
-                      Clear
-                    </button>
-                    <button
-                      type="button"
-                      className="asign-btn small primary"
-                      onClick={() =>
-                        submitSignature({
-                          signer_role: 'it_staff',
-                          signer_name: itSignerName,
-                          fileFromUpload: itUploadFile,
-                          padRef: itSigRef,
-                        })
-                      }
-                    >
-                      Save IT Staff Signature
-                    </button>
-                  </div>
+              <div className="assign-sign-pad-wrap">
+                <SignatureCanvas ref={mtSigRef} penColor="black" canvasProps={{ className: 'assign-sign-pad' }} />
+                <div className="assign-sign-pad-actions">
+                  <button type="button" className="assign-sign-btn small secondary" onClick={() => clearPad(mtSigRef)}>
+                    Clear
+                  </button>
+                  <button
+                    type="button"
+                    className="assign-sign-btn small primary"
+                    onClick={() =>
+                      submitSignature({
+                        signer_role: mtRole,
+                        signer_name: mtName,
+                        fileFromUpload: mtUploadFile,
+                        padRef: mtSigRef,
+                      })
+                    }
+                  >
+                    Save {mtRole === 'manager' ? 'Manager' : 'TL'} Signature
+                  </button>
                 </div>
               </div>
-
-              {/* 4) Manager OR TL */}
-              <div className="asign-section">
-                <h3>4) Manager OR TL Signature</h3>
-
-                {showMtAlreadyExistsBanner && (
-                  <div className="asign-alert info">
-                    {mtRole === 'manager'
-                      ? 'Manager signature already exists. You can still overwrite by saving again.'
-                      : 'TL signature already exists. You can still overwrite by saving again.'}
-                  </div>
-                )}
-
-                <div className="asign-row">
-                  <div className="asign-field">
-                    <label>Signer Role *</label>
-                    <select value={mtRole} onChange={(e) => setMtRole(e.target.value)}>
-                      <option value="manager">Manager</option>
-                      <option value="tl">TL</option>
-                    </select>
-                  </div>
-
-                  <div className="asign-field">
-                    <label>{mtRole === 'manager' ? 'Manager Name *' : 'TL Name *'}</label>
-                    <input value={mtName} disabled />
-                  </div>
-
-                  <div className="asign-field">
-                    <label>Upload Signature (optional)</label>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={(e) => setMtUploadFile(e.target.files?.[0] || null)}
-                    />
-                  </div>
-                </div>
-
-                <div className="asign-pad-wrap">
-                  <SignatureCanvas ref={mtSigRef} penColor="black" canvasProps={{ className: 'asign-pad' }} />
-                  <div className="asign-pad-actions">
-                    <button type="button" className="asign-btn small" onClick={() => clearPad(mtSigRef)}>
-                      Clear
-                    </button>
-                    <button
-                      type="button"
-                      className="asign-btn small primary"
-                      onClick={() =>
-                        submitSignature({
-                          signer_role: mtRole,
-                          signer_name: mtName,
-                          fileFromUpload: mtUploadFile,
-                          padRef: mtSigRef,
-                        })
-                      }
-                    >
-                      Save {mtRole === 'manager' ? 'Manager' : 'TL'} Signature
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </>
-          )}
-        </div>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );

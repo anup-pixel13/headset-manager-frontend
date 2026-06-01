@@ -1,161 +1,366 @@
-.asign-container {
+/* ============================================================
+   ASSIGNMENT SIGN — gradient + glass-card theme
+   Prefix: assign-sign-
+   ============================================================ */
+
+.assign-sign-container {
   min-height: 100vh;
-  padding: 90px 16px 40px;
-  background: #f3f4f6;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  padding: 100px 20px 60px;
+  font-family: 'Trebuchet MS', Verdana, sans-serif;
 }
 
-.asign-content {
+.assign-sign-content {
   max-width: 1100px;
   margin: 0 auto;
 }
 
-.asign-top {
+/* ── Header card ── */
+.assign-sign-header-card {
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(20px);
+  border-radius: 20px;
+  padding: 28px 30px;
+  margin-bottom: 20px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+  border: 2px solid rgba(255, 255, 255, 0.5);
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 14px;
+  gap: 20px;
+  flex-wrap: wrap;
 }
 
-.asign-btn {
-  background: white;
-  border: 2px solid #e5e7eb;
-  padding: 10px 14px;
-  border-radius: 10px;
-  cursor: pointer;
+.assign-sign-header-left { flex: 1; }
+
+.assign-sign-title {
+  font-size: 1.9rem;
   font-weight: 800;
+  margin: 0 0 6px 0;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
-.asign-btn.secondary {
+.assign-sign-subtitle {
+  margin: 0;
+  color: #6b7280;
+  font-weight: 650;
+  font-size: 0.9rem;
+}
+
+.assign-sign-header-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+/* ── Buttons ── */
+.assign-sign-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 11px 20px;
+  border-radius: 12px;
+  border: 2px solid rgba(255, 255, 255, 0.4);
+  background: rgba(255, 255, 255, 0.95);
+  color: #374151;
+  font-weight: 800;
+  cursor: pointer;
+  transition: all 0.25s ease;
+  font-size: 0.9rem;
+  white-space: nowrap;
+}
+
+.assign-sign-btn:hover {
+  background: white;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15);
+}
+
+.assign-sign-btn.primary {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-color: transparent;
+  color: white;
+  box-shadow: 0 4px 15px rgba(102, 126, 234, 0.35);
+}
+
+.assign-sign-btn.primary:hover {
+  background: linear-gradient(135deg, #5a6fd6 0%, #6a3d9a 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(102, 126, 234, 0.5);
+}
+
+.assign-sign-btn.secondary {
   border-color: #c7d2fe;
   color: #3730a3;
 }
 
-.asign-btn.small {
-  padding: 8px 10px;
+.assign-sign-btn.secondary:hover {
+  background: #eef2ff;
+  border-color: #667eea;
+}
+
+.assign-sign-btn.danger {
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+  border-color: transparent;
+  color: white;
+}
+
+.assign-sign-btn.danger:hover {
+  background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+  transform: translateY(-2px);
+}
+
+.assign-sign-btn.small {
+  padding: 8px 14px;
+  font-size: 0.85rem;
   border-radius: 10px;
 }
 
-.asign-btn.primary {
-  background: #10b981;
-  color: white;
-  border-color: #10b981;
-}
-
-.asign-card {
-  background: white;
-  border: 2px solid #eef2ff;
-  border-radius: 16px;
-  padding: 18px;
-}
-
-.asign-title {
-  margin: 0 0 6px;
-}
-
-.asign-sub {
-  margin: 0 0 14px;
-  color: #6b7280;
-  font-weight: 650;
-}
-
-.asign-alert {
-  padding: 10px 12px;
-  border-radius: 12px;
-  margin-bottom: 12px;
-  background: #fee2e2;
-  color: #991b1b;
+/* ── Alerts ── */
+.assign-sign-alert {
+  padding: 14px 16px;
+  border-radius: 14px;
+  margin-bottom: 16px;
   font-weight: 800;
-  border: 1px solid #fecaca;
+  border: 2px solid transparent;
+  background: rgba(255, 255, 255, 0.95);
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.12);
+  color: #991b1b;
+  border-color: rgba(239, 68, 68, 0.4);
 }
 
-.asign-alert.success {
-  background: #dcfce7;
+.assign-sign-alert.success {
   color: #065f46;
-  border-color: #bbf7d0;
+  border-color: rgba(16, 185, 129, 0.4);
 }
 
-.asign-alert.info {
-  background: #dbeafe;
+.assign-sign-alert.info {
   color: #1e3a8a;
-  border-color: #bfdbfe;
+  border-color: rgba(59, 130, 246, 0.4);
 }
 
-.asign-status {
+/* ── Loading state ── */
+.assign-sign-loading {
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(20px);
+  border-radius: 20px;
+  padding: 60px 20px;
+  text-align: center;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.15);
+  border: 2px solid rgba(255, 255, 255, 0.5);
+  color: #6b7280;
+  font-weight: 700;
+}
+
+.assign-sign-spinner {
+  width: 48px;
+  height: 48px;
+  border: 4px solid transparent;
+  border-top-color: #667eea;
+  border-right-color: #764ba2;
+  border-radius: 50%;
+  animation: assignSignSpin 0.8s linear infinite;
+  margin: 0 auto 16px;
+}
+
+@keyframes assignSignSpin { to { transform: rotate(360deg); } }
+
+/* ── Body cards ── */
+.assign-sign-card {
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(20px);
+  border: 2px solid rgba(255, 255, 255, 0.5);
+  border-radius: 20px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.15);
+  padding: 24px;
+  margin-bottom: 18px;
+}
+
+.assign-sign-card-title {
+  font-size: 1.1rem;
+  font-weight: 800;
+  margin: 0 0 16px 0;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-bottom: 12px;
+  border-bottom: 2px solid rgba(102, 126, 234, 0.15);
+}
+
+/* ── Meta info ── */
+.assign-sign-meta {
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
+  grid-template-columns: repeat(2, 1fr);
   gap: 10px;
-  padding: 12px;
-  border-radius: 12px;
+  padding: 14px;
+  border-radius: 14px;
   background: #f9fafb;
   border: 1px solid #e5e7eb;
-  margin-bottom: 14px;
   font-weight: 800;
+  margin-bottom: 4px;
 }
 
-.asign-pdf.ok { color: #065f46; }
-.asign-pdf.no { color: #991b1b; }
+/* ── Status pills row ── */
+.assign-sign-status-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
 
-.asign-section {
-  margin-top: 16px;
-  padding-top: 14px;
+.assign-sign-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  border-radius: 999px;
+  font-size: 0.82rem;
+  font-weight: 900;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.assign-sign-pill.ok {
+  background: #dcfce7;
+  color: #065f46;
+}
+
+.assign-sign-pill.warn {
+  background: #fef9c3;
+  color: #854d0e;
+}
+
+.assign-sign-pill.bad {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.assign-sign-pill.info {
+  background: #dbeafe;
+  color: #1e3a8a;
+}
+
+/* ── Section inside card ── */
+.assign-sign-section {
+  margin-top: 18px;
+  padding-top: 16px;
   border-top: 1px solid #e5e7eb;
 }
 
-.asign-row {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
-  margin-bottom: 10px;
+.assign-sign-section:first-child {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: none;
 }
 
-.asign-field label {
+/* ── Form row / fields ── */
+.assign-sign-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  margin-bottom: 12px;
+}
+
+.assign-sign-field label {
   display: block;
   margin-bottom: 6px;
   font-weight: 900;
+  color: #374151;
 }
 
-.asign-field input,
-.asign-field select {
+.assign-sign-field input,
+.assign-sign-field select,
+.assign-sign-field textarea {
   width: 100%;
-  padding: 10px 12px;
-  border-radius: 10px;
+  padding: 11px 14px;
+  border-radius: 12px;
   border: 2px solid #e5e7eb;
+  font-size: 0.9rem;
+  color: #374151;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  background: white;
+  font-family: inherit;
 }
 
-.asign-pad-wrap {
+.assign-sign-field input:focus,
+.assign-sign-field select:focus,
+.assign-sign-field textarea:focus {
+  outline: none;
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.25);
+}
+
+.assign-sign-field input:disabled,
+.assign-sign-field select:disabled {
+  background: #f9fafb;
+  opacity: 0.75;
+  cursor: not-allowed;
+}
+
+/* ── Signature pad ── */
+.assign-sign-pad-wrap {
   border: 2px solid #e5e7eb;
-  border-radius: 12px;
+  border-radius: 14px;
   overflow: hidden;
   background: #fff;
+  transition: border-color 0.2s;
 }
 
-.asign-pad {
+.assign-sign-pad-wrap:focus-within {
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.15);
+}
+
+.assign-sign-pad {
   width: 100%;
   height: 220px;
   background: #fff;
+  display: block;
 }
 
-.asign-pad-actions {
+.assign-sign-pad-actions {
   display: flex;
   justify-content: flex-end;
   gap: 10px;
-  padding: 10px;
+  padding: 10px 12px;
   border-top: 1px solid #e5e7eb;
   background: #f9fafb;
 }
 
-@media (max-width: 900px) {
-  .asign-row { grid-template-columns: 1fr; }
-  .asign-status { grid-template-columns: 1fr; }
+/* ── Responsive ── */
+@media (max-width: 992px) {
+  .assign-sign-header-card {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .assign-sign-header-actions {
+    width: 100%;
+    justify-content: flex-start;
+  }
+  .assign-sign-meta {
+    grid-template-columns: 1fr;
+  }
 }
 
-.asign-meta {
-  margin: 10px 0 14px;
-  padding: 12px;
-  border-radius: 12px;
-  background: #f9fafb;
-  border: 1px solid #e5e7eb;
-  font-weight: 800;
-  display: grid;
-  gap: 6px;
+@media (max-width: 768px) {
+  .assign-sign-container {
+    padding: 80px 15px 40px;
+  }
+  .assign-sign-row {
+    grid-template-columns: 1fr;
+  }
+  .assign-sign-status-row {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .assign-sign-title {
+    font-size: 1.5rem;
+  }
 }
