@@ -122,16 +122,13 @@ export default function Dashboard() {
   const [currentPage, setCurrentPage] = useState(initial.page);
   const [itemsPerPage, setItemsPerPage] = useState(initial.perPage);
 
-  // debounce so typing is smooth
   const debouncedSearchTerm = useDebouncedValue(searchTerm, 400);
 
   useEffect(() => {
     if (prevPageRef.current === null) prevPageRef.current = initial.page;
   }, [initial.page]);
 
-  // ============================================
-  // URL -> state (guarded so we don't churn state)
-  // ============================================
+  // URL -> state
   useEffect(() => {
     if (isInitialMountRef.current) {
       isInitialMountRef.current = false;
@@ -153,8 +150,6 @@ export default function Dashboard() {
     setDateFilter((prev) =>
       prev.startDate === startDate && prev.endDate === endDate ? prev : { startDate, endDate }
     );
-    // IMPORTANT: do not overwrite searchTerm while user is typing.
-    // Only sync if URL has a different value than current.
     setSearchTerm((prev) => (prev === search ? prev : search));
     setProcessId((prev) => (prev === process ? prev : process));
     const safeStatus = ['active', 'inactive', 'all'].includes(status) ? status : DEFAULT_STATUS;
@@ -169,9 +164,7 @@ export default function Dashboard() {
     });
   }, [searchParams]);
 
-  // ============================================
-  // state -> URL  (use DEBOUNCED search so URL doesn't update on every keystroke)
-  // ============================================
+  // state -> URL (debounced search)
   useEffect(() => {
     if (isSyncingFromUrlRef.current || !urlInitializedRef.current) return;
 
@@ -216,7 +209,6 @@ export default function Dashboard() {
         setStats(res.data?.data || null);
       } catch (e) {
         console.error(e);
-        alert('Failed to load dashboard stats');
         setStats(null);
       } finally {
         setStatsLoading(false);
@@ -262,12 +254,13 @@ export default function Dashboard() {
     (async () => {
       try {
         setTableLoading(true);
+        setTableMsg({ type: '', text: '' });
         await fetchAssignments();
       } catch (e) {
         console.error(e);
-        alert('Failed to load assignments');
         setAssignments([]);
         setAssignmentsTotal(0);
+        setTableMsg({ type: 'error', text: e?.response?.data?.message || 'Failed to load assignments.' });
       } finally {
         setTableLoading(false);
       }
@@ -406,11 +399,6 @@ export default function Dashboard() {
     }
   };
 
-  const openUrl = (url) => {
-    if (!url) return;
-    window.open(url, '_blank', 'noopener,noreferrer');
-  };
-
   const scrollToCardTop = () => {
     const el = tableCardRef.current;
     if (!el) return;
@@ -473,10 +461,6 @@ export default function Dashboard() {
     },
   ];
 
-  const loading = statsLoading || tableLoading;
-
-  void openUrl;
-
   return (
     <div className="dash-container">
       <div className="container dash-content">
@@ -514,159 +498,156 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {loading ? (
-          <div className="dash-loading">
-            <div className="dash-spinner" />
-            <p>Loading dashboard...</p>
-          </div>
-        ) : !stats ? (
-          <div className="dash-empty">
-            <i className="bi bi-inbox" />
-            <h3>No data</h3>
-            <p>Could not load dashboard stats.</p>
-          </div>
-        ) : (
-          <>
-            <div className="dash-tiles">
-              {tiles.map((t) => (
-                <button key={t.label} className={t.className} onClick={t.onClick} type="button">
-                  <span className="dash-tile-value">{t.value}</span>
-                  <span className="dash-tile-label">{t.label}</span>
-                </button>
-              ))}
+        {/* Tiles: render placeholder zeros while stats load (so layout doesn't jump) */}
+        <div className="dash-tiles">
+          {tiles.map((t) => (
+            <button key={t.label} className={t.className} onClick={t.onClick} type="button">
+              <span className="dash-tile-value">{statsLoading ? '…' : t.value}</span>
+              <span className="dash-tile-label">{t.label}</span>
+            </button>
+          ))}
+        </div>
+
+        <div className="dash-actions-card">
+          <button className="dash-action-btn" onClick={() => navigate('/inventory')} type="button">
+            <i className="bi bi-headset" /> Inventory
+          </button>
+          <button className="dash-action-btn" onClick={() => navigate('/assign-headset')} type="button">
+            <i className="bi bi-person-plus" /> Assign Form
+          </button>
+
+          <button className="dash-action-btn" onClick={() => navigate('/create-agent')} type="button">
+            <i className="bi bi-person-badge" /> Create Agent
+          </button>
+
+          <button className="dash-action-btn" onClick={() => navigate('/agents')} type="button">
+            <i className="bi bi-people" /> View All Agents
+          </button>
+
+          <button className="dash-action-btn" onClick={() => navigate('/process-change')} type="button">
+            <i className="bi bi-shuffle" /> Process Change
+          </button>
+          <button className="dash-action-btn" onClick={() => navigate('/repairs')} type="button">
+            <i className="bi bi-tools" /> Send for Repair
+          </button>
+          <button className="dash-action-btn" onClick={() => navigate('/refunds')} type="button">
+            <i className="bi bi-arrow-repeat" /> Refunds
+          </button>
+        </div>
+
+        {/* Table card is ALWAYS mounted so the search/filter inputs never unmount,
+            which prevents focus loss + scroll jumps while typing/filtering. */}
+        <div className="dash-table-card" ref={tableCardRef}>
+          <div className="dash-table-top">
+            <div className="dash-table-title">
+              <h2>Assignments (Date Range)</h2>
+              <p>Search + filters + pagination + export</p>
             </div>
 
-            <div className="dash-actions-card">
-              <button className="dash-action-btn" onClick={() => navigate('/inventory')} type="button">
-                <i className="bi bi-headset" /> Inventory
-              </button>
-              <button className="dash-action-btn" onClick={() => navigate('/assign-headset')} type="button">
-                <i className="bi bi-person-plus" /> Assign Form
-              </button>
+            <div className="dash-table-controls">
+              <div className="dash-search">
+                <i className="bi bi-search" />
+                <input
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  placeholder="Search name / headset / employee id..."
+                />
+                {searchTerm && (
+                  <button
+                    type="button"
+                    className="dash-search-clear"
+                    onClick={() => setSearchTerm('')}
+                    title="Clear search"
+                    aria-label="Clear search"
+                  >
+                    <i className="bi bi-x-lg" />
+                  </button>
+                )}
+              </div>
 
-              <button className="dash-action-btn" onClick={() => navigate('/create-agent')} type="button">
-                <i className="bi bi-person-badge" /> Create Agent
-              </button>
+              <select
+                className="dash-select"
+                value={assignmentStatus}
+                onChange={(e) => setAssignmentStatus(e.target.value)}
+                title="Assignment status"
+              >
+                <option value="active">Active</option>
+                <option value="inactive">Inactive</option>
+                <option value="all">All</option>
+              </select>
 
-              <button className="dash-action-btn" onClick={() => navigate('/agents')} type="button">
-                <i className="bi bi-people" /> View All Agents
-              </button>
+              <select
+                className="dash-select"
+                value={processId}
+                onChange={(e) => setProcessId(e.target.value)}
+                title="Process filter"
+              >
+                {processOptions.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name}
+                  </option>
+                ))}
+              </select>
 
-              <button className="dash-action-btn" onClick={() => navigate('/process-change')} type="button">
-                <i className="bi bi-shuffle" /> Process Change
+              <button
+                className="dash-export-btn"
+                type="button"
+                onClick={exportAllFiltered}
+                disabled={assignmentsTotal === 0}
+                title={
+                  hasActiveFilters
+                    ? `Export ${assignmentsTotal} filtered assignments`
+                    : `Export all ${assignmentsTotal} assignments`
+                }
+              >
+                <i className="bi bi-download" /> {hasActiveFilters ? 'Export Filtered' : 'Export All'} (
+                {assignmentsTotal})
               </button>
-              <button className="dash-action-btn" onClick={() => navigate('/repairs')} type="button">
-                <i className="bi bi-tools" /> Send for Repair
-              </button>
-              <button className="dash-action-btn" onClick={() => navigate('/refunds')} type="button">
-                <i className="bi bi-arrow-repeat" /> Refunds
+            </div>
+          </div>
+
+          <div className="dash-table-meta">
+            <div className="dash-perpage">
+              <label>Items per page:</label>
+              <select
+                className="dash-select"
+                value={itemsPerPage}
+                onChange={(e) => setItemsPerPage(toPositiveInt(e.target.value, DEFAULT_ITEMS_PER_PAGE))}
+              >
+                {ITEMS_PER_PAGE_OPTIONS.map((n) => (
+                  <option key={n} value={n}>
+                    {n}
+                  </option>
+                ))}
+              </select>
+
+              <button
+                className="dash-export-btn"
+                style={{ background: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)' }}
+                type="button"
+                onClick={exportCurrentPage}
+                disabled={assignments.length === 0}
+                title={`Export ${assignments.length} rows from this page`}
+              >
+                <i className="bi bi-file-earmark" /> Export Page
               </button>
             </div>
 
-            <div className="dash-table-card" ref={tableCardRef}>
-              <div className="dash-table-top">
-                <div className="dash-table-title">
-                  <h2>Assignments (Date Range)</h2>
-                  <p>Search + filters + pagination + export</p>
-                </div>
+            <div className="dash-counts">
+              Total: <strong>{assignmentsTotal}</strong> | Page <strong>{currentPage}</strong> /{' '}
+              <strong>{totalPages}</strong>
+            </div>
+          </div>
 
-                <div className="dash-table-controls">
-                  <div className="dash-search">
-                    <i className="bi bi-search" />
-                    <input
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                      placeholder="Search name / headset / employee id..."
-                    />
-                    {searchTerm && (
-                      <button
-                        type="button"
-                        className="dash-search-clear"
-                        onClick={() => setSearchTerm('')}
-                        title="Clear search"
-                        aria-label="Clear search"
-                      >
-                        <i className="bi bi-x-lg" />
-                      </button>
-                    )}
-                  </div>
+          {tableMsg.text && <div className={`dash-table-alert ${tableMsg.type}`}>{tableMsg.text}</div>}
 
-                  <select
-                    className="dash-select"
-                    value={assignmentStatus}
-                    onChange={(e) => setAssignmentStatus(e.target.value)}
-                    title="Assignment status"
-                  >
-                    <option value="active">Active</option>
-                    <option value="inactive">Inactive</option>
-                    <option value="all">All</option>
-                  </select>
-
-                  <select
-                    className="dash-select"
-                    value={processId}
-                    onChange={(e) => setProcessId(e.target.value)}
-                    title="Process filter"
-                  >
-                    {processOptions.map((p) => (
-                      <option key={p.id} value={p.id}>
-                        {p.name}
-                      </option>
-                    ))}
-                  </select>
-
-                  <button
-                    className="dash-export-btn"
-                    type="button"
-                    onClick={exportAllFiltered}
-                    disabled={assignmentsTotal === 0}
-                    title={
-                      hasActiveFilters
-                        ? `Export ${assignmentsTotal} filtered assignments`
-                        : `Export all ${assignmentsTotal} assignments`
-                    }
-                  >
-                    <i className="bi bi-download" /> {hasActiveFilters ? 'Export Filtered' : 'Export All'} (
-                    {assignmentsTotal})
-                  </button>
-                </div>
-              </div>
-
-              <div className="dash-table-meta">
-                <div className="dash-perpage">
-                  <label>Items per page:</label>
-                  <select
-                    className="dash-select"
-                    value={itemsPerPage}
-                    onChange={(e) => setItemsPerPage(toPositiveInt(e.target.value, DEFAULT_ITEMS_PER_PAGE))}
-                  >
-                    {ITEMS_PER_PAGE_OPTIONS.map((n) => (
-                      <option key={n} value={n}>
-                        {n}
-                      </option>
-                    ))}
-                  </select>
-
-                  <button
-                    className="dash-export-btn"
-                    style={{ background: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)' }}
-                    type="button"
-                    onClick={exportCurrentPage}
-                    disabled={assignments.length === 0}
-                    title={`Export ${assignments.length} rows from this page`}
-                  >
-                    <i className="bi bi-file-earmark" /> Export Page
-                  </button>
-                </div>
-
-                <div className="dash-counts">
-                  Total: <strong>{assignmentsTotal}</strong> | Page <strong>{currentPage}</strong> /{' '}
-                  <strong>{totalPages}</strong>
-                </div>
-              </div>
-
-              {tableMsg.text && <div className={`dash-table-alert ${tableMsg.type}`}>{tableMsg.text}</div>}
-
+          {tableLoading ? (
+            <div className="dash-loading" style={{ padding: 40 }}>
+              <div className="dash-spinner" />
+              <p>Loading assignments...</p>
+            </div>
+          ) : (
+            <>
               <div className="dash-table-wrap">
                 <table className="dash-table">
                   <thead>
@@ -800,9 +781,9 @@ export default function Dashboard() {
                   </button>
                 </div>
               )}
-            </div>
-          </>
-        )}
+            </>
+          )}
+        </div>
       </div>
     </div>
   );
