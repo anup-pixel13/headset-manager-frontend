@@ -14,6 +14,7 @@ import {
 } from '../services/repairService';
 
 import { searchDamagedOrRepairHeadsets } from '../services/headsetService';
+import SmartPagination from '../components/SmartPagination';
 import SearchableSelect from '../components/SearchableSelect';
 
 import './Repairs.css';
@@ -55,8 +56,7 @@ export default function Repairs() {
   const urlInitializedRef = useRef(false);
   const prevPageRef = useRef(null);
   const isUserPageChangeRef = useRef(false);
-
-  const pendingScrollActionRef = useRef(null);
+  const tableCardRef = useRef(null);
 
   const initial = useMemo(() => {
     const tab = searchParams.get('tab') || 'draft';
@@ -183,34 +183,6 @@ export default function Repairs() {
       isUserPageChangeRef.current = false;
     }
   }, [tab, search, brandGroup, dateFilter.startDate, dateFilter.endDate, page, limit, setSearchParams, searchParams]);
-
-  // scroll helpers (top/bottom like your reference approach)
-  useEffect(() => {
-    if (!pendingScrollActionRef.current || loading) return;
-
-    const action = pendingScrollActionRef.current;
-    pendingScrollActionRef.current = null;
-
-    setTimeout(() => {
-      if (action === 'top') {
-        const tableWrapper = document.querySelector('.rep-table-card');
-        if (tableWrapper) {
-          const headerOffset = 150;
-          const elementPosition = tableWrapper.getBoundingClientRect().top;
-          const offsetPosition = elementPosition + window.pageYOffset - headerOffset;
-          window.scrollTo({ top: offsetPosition, behavior: 'smooth' });
-        }
-      } else if (action === 'bottom') {
-        const paginationWrapper = document.querySelector('.rep-pagination-card');
-        if (paginationWrapper) {
-          const paginationBottom = paginationWrapper.getBoundingClientRect().bottom + window.pageYOffset;
-          const viewportHeight = window.innerHeight;
-          const scrollPosition = paginationBottom - viewportHeight + 20;
-          window.scrollTo({ top: scrollPosition, behavior: 'smooth' });
-        }
-      }
-    }, 100);
-  }, [page, loading]);
 
   const loadLots = async () => {
     setLoading(true);
@@ -414,35 +386,6 @@ export default function Repairs() {
     } finally {
       setLotLoading(false);
     }
-  };
-
-  // Pagination numbers like your reference (1 ... current-1 current current+1 ... last)
-  const getPageNumbers = () => {
-    const pageNumbers = [];
-    const maxPagesToShow = 5;
-
-    if (totalPages <= maxPagesToShow) {
-      for (let i = 1; i <= totalPages; i++) pageNumbers.push(i);
-    } else {
-      if (page <= 3) {
-        for (let i = 1; i <= 4; i++) pageNumbers.push(i);
-        pageNumbers.push('...');
-        pageNumbers.push(totalPages);
-      } else if (page >= totalPages - 2) {
-        pageNumbers.push(1);
-        pageNumbers.push('...');
-        for (let i = totalPages - 3; i <= totalPages; i++) pageNumbers.push(i);
-      } else {
-        pageNumbers.push(1);
-        pageNumbers.push('...');
-        pageNumbers.push(page - 1);
-        pageNumbers.push(page);
-        pageNumbers.push(page + 1);
-        pageNumbers.push('...');
-        pageNumbers.push(totalPages);
-      }
-    }
-    return pageNumbers;
   };
 
   const hasActiveFilters =
@@ -761,7 +704,7 @@ export default function Repairs() {
           </div>
         ) : (
           <>
-            <div className="rep-table-card">
+            <div className="rep-table-card" ref={tableCardRef}>
               <table className="rep-table">
                 <thead>
                   <tr>
@@ -802,61 +745,17 @@ export default function Repairs() {
             </div>
 
             {totalPages > 1 && (
-              <div className="rep-pagination-card">
-                <button
-                  className="rep-page-btn"
-                  onClick={() => {
-                    if (page === 1) return;
-                    isUserPageChangeRef.current = true;
-                    pendingScrollActionRef.current = 'bottom';
-                    setPage((p) => Math.max(1, p - 1));
-                  }}
-                  disabled={page === 1}
-                  type="button"
-                >
-                  <i className="bi bi-chevron-left" />
-                  Previous
-                </button>
-
-                <div className="rep-page-numbers">
-                  {getPageNumbers().map((n, idx) =>
-                    n === '...' ? (
-                      <span key={`${n}-${idx}`} className="rep-page-dots">
-                        ...
-                      </span>
-                    ) : (
-                      <button
-                        key={String(n)}
-                        className={`rep-page-num ${n === page ? 'active' : ''}`}
-                        onClick={() => {
-                          if (n === page) return;
-                          isUserPageChangeRef.current = true;
-                          pendingScrollActionRef.current = 'top';
-                          setPage(Number(n));
-                        }}
-                        type="button"
-                      >
-                        {n}
-                      </button>
-                    )
-                  )}
-                </div>
-
-                <button
-                  className="rep-page-btn"
-                  onClick={() => {
-                    if (page === totalPages) return;
-                    isUserPageChangeRef.current = true;
-                    pendingScrollActionRef.current = 'top';
-                    setPage((p) => Math.min(totalPages, p + 1));
-                  }}
-                  disabled={page === totalPages}
-                  type="button"
-                >
-                  Next
-                  <i className="bi bi-chevron-right" />
-                </button>
-              </div>
+              <SmartPagination
+                currentPage={page}
+                totalPages={totalPages}
+                onPageChange={(targetPage, anchor) => {
+                    void anchor;
+                  isUserPageChangeRef.current = true;
+                  setPage(targetPage);
+                }}
+                scrollTargetRef={tableCardRef}
+                className="rep-pagination-card"
+              />
             )}
           </>
         )}

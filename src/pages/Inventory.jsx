@@ -13,6 +13,7 @@ import {
 } from '../services/headsetService';
 
 import { useAuth } from '../auth/AuthContext';
+import SmartPagination from '../components/SmartPagination';
 import './Inventory.css';
 
 import { formatHeadsetType, formatBrandName } from '../utils/headsetFormat';
@@ -55,6 +56,7 @@ export default function Inventory() {
   const [searchParams, setSearchParams] = useSearchParams();
 
   const isSyncingFromUrlRef = useRef(false);
+  const tableCardRef = useRef(null);
 
   const initial = useMemo(() => {
     return {
@@ -533,7 +535,7 @@ export default function Inventory() {
           </div>
         ) : (
           <>
-            <div className="inv-grid">
+            <div className="inv-grid" ref={tableCardRef}>
               {headsets.map((h) => {
                 const assigned = !!h.assignment;
                 const kind = h.assignment?.assignmentKind || '';
@@ -654,27 +656,16 @@ export default function Inventory() {
             </div>
 
             {totalPages > 1 && (
-              <div className="inv-pagination-card">
-                <button
-                  className="inv-page-btn"
-                  type="button"
-                  onClick={() => setPage((p) => Math.max(1, p - 1))}
-                  disabled={page === 1}
-                >
-                  <i className="bi bi-chevron-left" /> Prev
-                </button>
-                <span className="inv-page-text">
-                  Page <strong>{page}</strong> of <strong>{totalPages}</strong> • Total <strong>{total}</strong>
-                </span>
-                <button
-                  className="inv-page-btn"
-                  type="button"
-                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                  disabled={page === totalPages}
-                >
-                  Next <i className="bi bi-chevron-right" />
-                </button>
-              </div>
+              <SmartPagination
+                currentPage={page}
+                totalPages={totalPages}
+                onPageChange={(targetPage, anchor) => {
+                  void anchor;
+                  setPage(targetPage);
+                }}
+                scrollTargetRef={tableCardRef}
+                className="inv-pagination-card"
+              />
             )}
           </>
         )}

@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import * as XLSX from 'xlsx';
 
+import SmartPagination from '../components/SmartPagination';
 import { getPendingSignatures, getPendingPermanentIds } from '../services/assignmentService';
 import { updateEmployeeId } from '../services/agentService';
 import { useAuth } from '../auth/AuthContext';
@@ -59,6 +60,8 @@ export default function PendingActions() {
   const lastSigKeyRef = useRef('');
   const didIdFilterOnceRef = useRef(false);
   const lastIdKeyRef = useRef('');
+  const sigTableCardRef = useRef(null);
+  const idTableCardRef = useRef(null);
 
   const initial = useMemo(() => {
     const initialTab = searchParams.get('tab') === 'ids' ? 'ids' : DEFAULT_TAB;
@@ -549,7 +552,7 @@ export default function PendingActions() {
             <p>Loading pending actions...</p>
           </div>
         ) : tab === 'signatures' ? (
-          <div className="dash-table-card pa-table-card">
+          <div className="dash-table-card pa-table-card" ref={sigTableCardRef}>
             <div className="dash-table-top">
               <div className="dash-table-title">
                 <h2>Pending Signatures</h2>
@@ -663,38 +666,22 @@ export default function PendingActions() {
                   </table>
                 </div>
 
-                <div className="dash-pagination">
-                  <button
-                    className="dash-page-btn"
-                    onClick={() => {
-                      isUserPageChangeRef.current = true;
-                      setSigPage((p) => Math.max(1, p - 1));
-                    }}
-                    disabled={sigPage <= 1}
-                    type="button"
-                  >
-                    Prev
-                  </button>
-                  <span className="dash-page-text">
-                    Page {sigPage} of {sigTotalPages}
-                  </span>
-                  <button
-                    className="dash-page-btn"
-                    onClick={() => {
-                      isUserPageChangeRef.current = true;
-                      setSigPage((p) => Math.min(sigTotalPages, p + 1));
-                    }}
-                    disabled={sigPage >= sigTotalPages}
-                    type="button"
-                  >
-                    Next
-                  </button>
-                </div>
+                <SmartPagination
+                  currentPage={sigPage}
+                  totalPages={sigTotalPages}
+                  onPageChange={(targetPage, anchor) => {
+                    void anchor;
+                    isUserPageChangeRef.current = true;
+                    setSigPage(targetPage);
+                  }}
+                  scrollTargetRef={sigTableCardRef}
+                  className="dash-pagination sigPagination"
+                />
               </>
             )}
           </div>
         ) : (
-          <div className="dash-table-card pa-table-card">
+          <div className="dash-table-card pa-table-card" ref={idTableCardRef}>
             <div className="dash-table-top">
               <div className="dash-table-title">
                 <h2>Pending Permanent IDs</h2>
@@ -807,33 +794,17 @@ export default function PendingActions() {
                   </table>
                 </div>
 
-                <div className="dash-pagination">
-                  <button
-                    className="dash-page-btn"
-                    onClick={() => {
-                      isUserPageChangeRef.current = true;
-                      setIdPage((p) => Math.max(1, p - 1));
-                    }}
-                    disabled={idPage <= 1}
-                    type="button"
-                  >
-                    Prev
-                  </button>
-                  <span className="dash-page-text">
-                    Page {idPage} of {idTotalPages}
-                  </span>
-                  <button
-                    className="dash-page-btn"
-                    onClick={() => {
-                      isUserPageChangeRef.current = true;
-                      setIdPage((p) => Math.min(idTotalPages, p + 1));
-                    }}
-                    disabled={idPage >= idTotalPages}
-                    type="button"
-                  >
-                    Next
-                  </button>
-                </div>
+                <SmartPagination
+                  currentPage={idPage}
+                  totalPages={idTotalPages}
+                  onPageChange={(targetPage, anchor) => {
+                    void anchor;
+                    isUserPageChangeRef.current = true;
+                    setIdPage(targetPage);
+                  }}
+                  scrollTargetRef={idTableCardRef}
+                  className="dash-pagination idPagination"
+                />
               </>
             )}
 

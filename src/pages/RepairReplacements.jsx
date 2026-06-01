@@ -8,6 +8,7 @@ import {
   closeReplacementAgentExit,
 } from '../services/repairService';
 import { useAuth } from '../auth/AuthContext';
+import SmartPagination from '../components/SmartPagination';
 
 import './RepairReplacements.css';
 
@@ -174,7 +175,7 @@ export default function RepairReplacements() {
   const isSyncingFromUrlRef = useRef(false);
   const prevPageRef = useRef(null);
   const isUserPageChangeRef = useRef(false);
-  const pendingScrollActionRef = useRef(null);
+  const tableCardRef = useRef(null);
 
   const initial = useMemo(() => {
     return {
@@ -262,25 +263,6 @@ export default function RepairReplacements() {
   useEffect(() => {
     if (page > totalPages) setPage(totalPages);
   }, [totalPages, page]);
-
-  // scroll helper
-  useEffect(() => {
-    if (!pendingScrollActionRef.current || loading) return;
-    const action = pendingScrollActionRef.current;
-    pendingScrollActionRef.current = null;
-
-    setTimeout(() => {
-      if (action === 'top') {
-        const tableWrapper = document.querySelector('.rr-table-card');
-        if (tableWrapper) {
-          const headerOffset = 150;
-          const elementPosition = tableWrapper.getBoundingClientRect().top;
-          const offsetPosition = elementPosition + window.pageYOffset - headerOffset;
-          window.scrollTo({ top: offsetPosition, behavior: 'smooth' });
-        }
-      }
-    }, 100);
-  }, [page, loading]);
 
   const load = async () => {
     setLoading(true);
@@ -387,35 +369,6 @@ export default function RepairReplacements() {
     } finally {
       setAgentExitLoading(false);
     }
-  };
-
-  // Pagination numbers
-  const getPageNumbers = () => {
-    const nums = [];
-    const maxPagesToShow = 5;
-
-    if (totalPages <= maxPagesToShow) {
-      for (let i = 1; i <= totalPages; i++) nums.push(i);
-    } else {
-      if (page <= 3) {
-        for (let i = 1; i <= 4; i++) nums.push(i);
-        nums.push('...');
-        nums.push(totalPages);
-      } else if (page >= totalPages - 2) {
-        nums.push(1);
-        nums.push('...');
-        for (let i = totalPages - 3; i <= totalPages; i++) nums.push(i);
-      } else {
-        nums.push(1);
-        nums.push('...');
-        nums.push(page - 1);
-        nums.push(page);
-        nums.push(page + 1);
-        nums.push('...');
-        nums.push(totalPages);
-      }
-    }
-    return nums;
   };
 
   // Export
@@ -622,7 +575,7 @@ export default function RepairReplacements() {
           </div>
         ) : (
           <>
-            <div className="rr-table-card">
+            <div className="rr-table-card" ref={tableCardRef}>
               <table className="rr-table">
                 <thead>
                   <tr>
@@ -720,59 +673,17 @@ export default function RepairReplacements() {
             </div>
 
             {totalPages > 1 && (
-              <div className="rr-pagination-card">
-                <button
-                  className="rr-page-btn"
-                  type="button"
-                  onClick={() => {
-                    if (page === 1) return;
-                    isUserPageChangeRef.current = true;
-                    pendingScrollActionRef.current = 'top';
-                    setPage((p) => Math.max(1, p - 1));
-                  }}
-                  disabled={page === 1}
-                >
-                  <i className="bi bi-chevron-left" /> Previous
-                </button>
-
-                <div className="rr-page-numbers">
-                  {getPageNumbers().map((n, idx) =>
-                    n === '...' ? (
-                      <span key={`${n}-${idx}`} className="rr-page-dots">
-                        ...
-                      </span>
-                    ) : (
-                      <button
-                        key={String(n)}
-                        className={`rr-page-num ${Number(n) === page ? 'active' : ''}`}
-                        type="button"
-                        onClick={() => {
-                          if (Number(n) === page) return;
-                          isUserPageChangeRef.current = true;
-                          pendingScrollActionRef.current = 'top';
-                          setPage(Number(n));
-                        }}
-                      >
-                        {n}
-                      </button>
-                    )
-                  )}
-                </div>
-
-                <button
-                  className="rr-page-btn"
-                  type="button"
-                  onClick={() => {
-                    if (page === totalPages) return;
-                    isUserPageChangeRef.current = true;
-                    pendingScrollActionRef.current = 'top';
-                    setPage((p) => Math.min(totalPages, p + 1));
-                  }}
-                  disabled={page === totalPages}
-                >
-                  Next <i className="bi bi-chevron-right" />
-                </button>
-              </div>
+              <SmartPagination
+                currentPage={page}
+                totalPages={totalPages}
+                onPageChange={(targetPage, anchor) => {
+                    void anchor;
+                  isUserPageChangeRef.current = true;
+                  setPage(targetPage);
+                }}
+                scrollTargetRef={tableCardRef}
+                className="rr-pagination-card"
+              />
             )}
           </>
         )}
