@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import * as XLSX from 'xlsx';
 
@@ -99,9 +99,10 @@ export default function Inventory() {
   // action menu per-card
   const [openMenuId, setOpenMenuId] = useState(null);
   const [actionBusyId, setActionBusyId] = useState(null);
+  const getCardElementForItem = useCallback((id) => cardRefs.current[String(id)], []);
   const focusedItemId = useListReturnFocus({
     ready: !loading,
-    getElementForItem: (id) => cardRefs.current[String(id)],
+    getElementForItem: getCardElementForItem,
   });
 
   const totalPages = Math.max(1, Math.ceil(total / perPage));

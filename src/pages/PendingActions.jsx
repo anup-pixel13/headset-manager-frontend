@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import * as XLSX from 'xlsx';
 
@@ -121,9 +121,10 @@ export default function PendingActions() {
   const [saving, setSaving] = useState(false);
   const [selected, setSelected] = useState(null);
   const [newEmpId, setNewEmpId] = useState('');
+  const getSignatureRowElement = useCallback((id) => sigRowRefs.current[String(id)], []);
   const focusedItemId = useListReturnFocus({
     ready: !loading && tab === 'signatures',
-    getElementForItem: (id) => sigRowRefs.current[String(id)],
+    getElementForItem: getSignatureRowElement,
   });
 
   const normalizePendingIdRow = (r) => ({

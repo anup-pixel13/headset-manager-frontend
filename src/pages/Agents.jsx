@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import * as XLSX from 'xlsx';
 
@@ -94,9 +94,10 @@ export default function Agents() {
   const [processOptions, setProcessOptions] = useState([{ id: 'all', name: 'All Processes' }]);
 
   const debouncedSearchTerm = useDebouncedValue(searchTerm, 400);
+  const getRowElementForItem = useCallback((id) => rowRefs.current[String(id)], []);
   const focusedItemId = useListReturnFocus({
     ready: !loading,
-    getElementForItem: (id) => rowRefs.current[String(id)],
+    getElementForItem: getRowElementForItem,
   });
 
   useEffect(() => {
