@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import * as XLSX from 'xlsx';
 
 import {
@@ -16,7 +16,9 @@ import { useAuth } from '../auth/AuthContext';
 import SmartPagination from '../components/SmartPagination';
 import './Inventory.css';
 
+import { useListReturnFocus } from '../hooks/useListReturnFocus';
 import { formatHeadsetType, formatBrandName } from '../utils/headsetFormat';
+import { rememberListFocus } from '../utils/listReturnFocus';
 
 const DEFAULT_PAGE = 1;
 const DEFAULT_ITEMS_PER_PAGE = 12;
@@ -51,12 +53,14 @@ function isTempAssignment(kind) {
 }
 
 export default function Inventory() {
+  const location = useLocation();
   const navigate = useNavigate();
   const { isAdmin } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
 
   const isSyncingFromUrlRef = useRef(false);
   const tableCardRef = useRef(null);
+  const cardRefs = useRef({});
 
   const initial = useMemo(() => {
     return {
@@ -95,6 +99,10 @@ export default function Inventory() {
   // action menu per-card
   const [openMenuId, setOpenMenuId] = useState(null);
   const [actionBusyId, setActionBusyId] = useState(null);
+  const focusedItemId = useListReturnFocus({
+    ready: !loading,
+    getElementForItem: (id) => cardRefs.current[String(id)],
+  });
 
   const totalPages = Math.max(1, Math.ceil(total / perPage));
 
@@ -342,6 +350,11 @@ export default function Inventory() {
     }
   };
 
+  const navigateWithFocus = (itemId, to) => {
+    rememberListFocus(location, itemId);
+    navigate(to);
+  };
+
   return (
     <div className="inv-container">
       <div className="container inv-content">
@@ -545,7 +558,18 @@ export default function Inventory() {
                 const canRetire = !assigned && h.status !== 'assigned';
 
                 return (
-                  <div key={h.id} className="inv-card" data-status={h.status}>
+                  <div
+                    key={h.id}
+                    ref={(el) => {
+                      if (el) {
+                        cardRefs.current[String(h.id)] = el;
+                      } else {
+                        delete cardRefs.current[String(h.id)];
+                      }
+                    }}
+                    className={`inv-card ${String(h.id) === String(focusedItemId) ? 'inv-card-focused' : ''}`}
+                    data-status={h.status}
+                  >
                     <div className="inv-card-header">
                       <div className="inv-card-title">
                         <span className="inv-headset-number">{h.headsetNumber}</span>
@@ -594,14 +618,14 @@ export default function Inventory() {
                     </div>
 
                     <div className="inv-card-actions" style={{ gap: 8, flexWrap: 'wrap' }}>
-                      <button className="inv-card-btn view" type="button" onClick={() => navigate(`/headsets/${h.id}`)}>
+                      <button className="inv-card-btn view" type="button" onClick={() => navigateWithFocus(h.id, `/headsets/${h.id}`)}>
                         <i className="bi bi-eye" /> View Headset
                       </button>
 
                       <button
                         className="inv-card-btn secondary"
                         type="button"
-                        onClick={() => navigate(`/headsets/${h.id}/assignments`)}
+                        onClick={() => navigateWithFocus(h.id, `/headsets/${h.id}/assignments`)}
                       >
                         <i className="bi bi-clock-history" /> Assignment History
                       </button>
@@ -611,7 +635,7 @@ export default function Inventory() {
                         type="button"
                         disabled={!assigned}
                         title={!assigned ? 'No current assignment' : 'View current assignment'}
-                        onClick={() => navigate(`/assignments/${h.assignment?.id}`)}
+                        onClick={() => navigateWithFocus(h.id, `/assignments/${h.assignment?.id}`)}
                       >
                         <i className="bi bi-person-lines-fill" /> Current Assignment
                       </button>
@@ -619,7 +643,7 @@ export default function Inventory() {
                       <button
                         className="inv-card-btn secondary"
                         type="button"
-                        onClick={() => navigate(`/headsets/${h.id}/repairs`)}
+                        onClick={() => navigateWithFocus(h.id, `/headsets/${h.id}/repairs`)}
                       >
                         <i className="bi bi-wrench-adjustable" /> Repair History
                       </button>

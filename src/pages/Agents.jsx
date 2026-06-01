@@ -1,9 +1,11 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import * as XLSX from 'xlsx';
 
 import { getAllAgents, getProcessesForDropdown } from '../services/agentService';
 import SmartPagination from '../components/SmartPagination';
+import { useListReturnFocus } from '../hooks/useListReturnFocus';
+import { rememberListFocus } from '../utils/listReturnFocus';
 
 import './Dashboard.css';
 
@@ -36,6 +38,7 @@ function loginStatusToApi(v) {
 }
 
 export default function Agents() {
+  const location = useLocation();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
 
@@ -48,6 +51,7 @@ export default function Agents() {
   const lastKeyRef = useRef('');
 
   const tableCardRef = useRef(null);
+  const rowRefs = useRef({});
 
   // Read URL once on mount only (avoids re-derivation on every searchParams change)
   const initial = useMemo(() => {
@@ -90,6 +94,10 @@ export default function Agents() {
   const [processOptions, setProcessOptions] = useState([{ id: 'all', name: 'All Processes' }]);
 
   const debouncedSearchTerm = useDebouncedValue(searchTerm, 400);
+  const focusedItemId = useListReturnFocus({
+    ready: !loading,
+    getElementForItem: (id) => rowRefs.current[String(id)],
+  });
 
   useEffect(() => {
     if (prevPageRef.current === null) prevPageRef.current = initial.page;
@@ -193,6 +201,11 @@ export default function Agents() {
     const payload = res.data;
     setAgents(payload?.data || []);
     setTotal(payload?.pagination?.total ?? 0);
+  };
+
+  const navigateWithFocus = (itemId, to) => {
+    rememberListFocus(location, itemId);
+    navigate(to);
   };
 
   useEffect(() => {
@@ -439,7 +452,17 @@ export default function Agents() {
                     {agents.map((a) => {
                       const has = !!a.headset;
                       return (
-                        <tr key={a.id}>
+                        <tr
+                          key={a.id}
+                          ref={(el) => {
+                            if (el) {
+                              rowRefs.current[String(a.id)] = el;
+                            } else {
+                              delete rowRefs.current[String(a.id)];
+                            }
+                          }}
+                          className={String(a.id) === String(focusedItemId) ? 'dash-row-focused agents-row-focused' : ''}
+                        >
                           <td>#{a.id}</td>
                           <td>{a.name || '—'}</td>
                           <td>{a.employeeId || '—'}</td>
@@ -461,7 +484,7 @@ export default function Agents() {
                               className="dash-row-btn secondary"
                               disabled={!has}
                               title={!has ? 'No active headset assignment' : 'De‑Assign (return headset + refund request)'}
-                              onClick={() => navigate(`/agents/${a.id}/deassign`)}
+                              onClick={() => navigateWithFocus(a.id, `/agents/${a.id}/deassign`)}
                             >
                               De‑Assign
                             </button>

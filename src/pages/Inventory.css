@@ -457,6 +457,24 @@
   box-shadow: 0 15px 45px rgba(0,0,0,0.22);
 }
 
+.inv-card-focused {
+  border-color: rgba(102, 126, 234, 0.75);
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.55), 0 8px 30px rgba(102, 126, 234, 0.25);
+  animation: invCardFocusPulse 1.5s ease;
+}
+
+@keyframes invCardFocusPulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(102, 126, 234, 0.6), 0 8px 30px rgba(102, 126, 234, 0.12);
+  }
+  45% {
+    box-shadow: 0 0 0 6px rgba(102, 126, 234, 0.2), 0 16px 36px rgba(118, 75, 162, 0.24);
+  }
+  100% {
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.55), 0 8px 30px rgba(102, 126, 234, 0.25);
+  }
+}
+
 .inv-card[data-status="available"] { border-color: #10b98155; }
 .inv-card[data-status="assigned"] { border-color: #3b82f655; }
 .inv-card[data-status="repair"] { border-color: #f59e0b55; }

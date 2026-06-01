@@ -301,6 +301,45 @@
   color: #713f12;                   /* dark amber text */
 }
 
+.dash-table tbody tr.dash-row-focused,
+.dash-table tbody tr.pa-row-focused,
+.dash-table tbody tr.agents-row-focused {
+  position: relative;
+  outline: 3px solid rgba(102, 126, 234, 0.55);
+  outline-offset: -3px;
+  animation: dashRowFocusPulse 1.5s ease;
+}
+
+.dash-table tbody tr.dash-row-focused td,
+.dash-table tbody tr.pa-row-focused td,
+.dash-table tbody tr.agents-row-focused td {
+  background: linear-gradient(135deg, rgba(102, 126, 234, 0.18), rgba(118, 75, 162, 0.12));
+}
+
+.dash-table tbody tr.dash-row-focused td:first-child,
+.dash-table tbody tr.pa-row-focused td:first-child,
+.dash-table tbody tr.agents-row-focused td:first-child {
+  box-shadow: inset 4px 0 0 #667eea;
+}
+
+.dash-table tbody tr.dash-row-focused td:last-child,
+.dash-table tbody tr.pa-row-focused td:last-child,
+.dash-table tbody tr.agents-row-focused td:last-child {
+  box-shadow: inset -4px 0 0 #764ba2;
+}
+
+@keyframes dashRowFocusPulse {
+  0% {
+    outline-color: rgba(102, 126, 234, 0.25);
+  }
+  50% {
+    outline-color: rgba(118, 75, 162, 0.7);
+  }
+  100% {
+    outline-color: rgba(102, 126, 234, 0.55);
+  }
+}
+
 .dash-pagination{
   display:flex;
   justify-content:center;
