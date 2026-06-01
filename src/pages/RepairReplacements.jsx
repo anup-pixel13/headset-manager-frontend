@@ -79,7 +79,7 @@ function AgentExitModal({ open, loading, row, onClose, onSubmit }) {
   // Escape key + body scroll lock
   useEffect(() => {
     if (!open) return undefined;
-    const prev = document.body.style.overflow;
+    const prev = document.body.style.overflow || '';
     document.body.style.overflow = 'hidden';
     const onKey = (e) => { if (e.key === 'Escape' && !loading) onClose(); };
     document.addEventListener('keydown', onKey);
@@ -202,7 +202,7 @@ function RehandoverModal({ open, loading, row, form, setForm, onClose, onSubmit 
   // Escape key + body scroll lock
   useEffect(() => {
     if (!open) return undefined;
-    const prev = document.body.style.overflow;
+    const prev = document.body.style.overflow || '';
     document.body.style.overflow = 'hidden';
     const onKey = (e) => { if (e.key === 'Escape' && !loading) onClose(); };
     document.addEventListener('keydown', onKey);
@@ -399,7 +399,7 @@ export default function RepairReplacements() {
 
   // Reset page when filters change
   useEffect(() => {
-    const key = `${tab}||${search}||${dateFilter.startDate}||${dateFilter.endDate}||${sortBy}||${sortOrder}`;
+    const key = JSON.stringify({ tab, search, startDate: dateFilter.startDate, endDate: dateFilter.endDate, sortBy, sortOrder });
     const keyChanged = lastKeyRef.current !== key;
 
     if (didFilterOnceRef.current && keyChanged && !isSyncingFromUrlRef.current) {
