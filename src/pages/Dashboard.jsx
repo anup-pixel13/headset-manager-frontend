@@ -121,10 +121,8 @@ export default function Dashboard() {
     } catch (err) {
       console.error('Dashboard logout failed:', err);
     } finally {
-      if (isMountedRef.current) {
-        setIsLoggingOut(false);
-        navigate('/login', { replace: true });
-      }
+      if (isMountedRef.current) setIsLoggingOut(false);
+      navigate('/login', { replace: true });
     }
   };
 
