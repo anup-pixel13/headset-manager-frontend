@@ -115,6 +115,7 @@
   font-weight: 800;
   border: 2px solid transparent;
   background: rgba(255, 255, 255, 0.95);
+  outline: none;
 }
 
 .ah-alert.success {

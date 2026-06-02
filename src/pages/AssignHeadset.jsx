@@ -36,7 +36,7 @@ export default function AssignHeadset() {
   // ✅ admin-only guard (prefer user.role if available)
   const isAdminRole = typeof isAdmin === 'boolean' ? isAdmin : String(user?.role || '').toLowerCase() === 'admin';
 
-  const alertRef = useRef(null);
+  const messageRef = useRef(null);
 
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -68,12 +68,13 @@ export default function AssignHeadset() {
   const [selectedHeadsetMeta, setSelectedHeadsetMeta] = useState(null);
   const [message, setMessage] = useState({ type: '', text: '' });
 
-  const focusAlert = () => {
-    const el = alertRef.current;
-    if (!el) return;
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-    el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    setTimeout(() => el.focus?.(), 50);
+  const focusMessage = () => {
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        messageRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        messageRef.current?.focus({ preventScroll: true });
+      });
+    });
   };
 
   // Guard: admin only
@@ -99,7 +100,7 @@ export default function AssignHeadset() {
       } catch (e) {
         console.error(e);
         setMessage({ type: 'error', text: 'Failed to load dropdown data.' });
-        queueMicrotask(focusAlert);
+        focusMessage();
       } finally {
         setLoading(false);
       }
@@ -155,7 +156,7 @@ export default function AssignHeadset() {
     const err = validate();
     if (err) {
       setMessage({ type: 'error', text: err });
-      queueMicrotask(focusAlert);
+      focusMessage();
       return;
     }
 
@@ -183,7 +184,7 @@ export default function AssignHeadset() {
         type: 'success',
         text: `${msg} (Assignment #${data.assignmentId || 'N/A'}, Receipt: ${data.receiptNumber || 'N/A'})`,
       });
-      queueMicrotask(focusAlert);
+      focusMessage();
 
       // Reset form (keep filters)
       setForm((prev) => ({
@@ -207,7 +208,7 @@ export default function AssignHeadset() {
       console.error(e2);
       const serverMsg = e2?.response?.data?.message;
       setMessage({ type: 'error', text: serverMsg || 'Assign failed.' });
-      queueMicrotask(focusAlert);
+      focusMessage();
     } finally {
       setSubmitting(false);
     }
@@ -272,10 +273,11 @@ export default function AssignHeadset() {
         {/* Top alert (focus + smooth scroll target) */}
         {message.text && (
           <div
-            ref={alertRef}
+            ref={messageRef}
             tabIndex={-1}
+            role="alert"
             className={`as-alert ${message.type}`}
-            aria-live="polite"
+            aria-live="assertive"
             aria-atomic="true"
           >
             <i className={`bi ${message.type === 'success' ? 'bi-check-circle-fill' : 'bi-exclamation-triangle-fill'}`} />
