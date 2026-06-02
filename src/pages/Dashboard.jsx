@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import * as XLSX from 'xlsx';
 
+import { useAuth } from '../auth/AuthContext';
 import { getDashboardStats } from '../services/dashboardService';
 import { getAllAssignments } from '../services/assignmentService';
 import { generateDepositFormPdf } from '../services/pdfService';
@@ -63,6 +64,7 @@ function formatMoney(v) {
 export default function Dashboard() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
+  const { logout } = useAuth();
 
   const isInitialMountRef = useRef(true);
   const isSyncingFromUrlRef = useRef(false);
@@ -104,8 +106,24 @@ export default function Dashboard() {
 
   const [currentPage, setCurrentPage] = useState(initial.page);
   const [itemsPerPage, setItemsPerPage] = useState(initial.perPage);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   const debouncedSearchTerm = useDebouncedValue(searchTerm, 400);
+
+  const handleLogout = async () => {
+    if (isLoggingOut || !window.confirm('Log out of Headset Manager?')) return;
+
+    setIsLoggingOut(true);
+
+    try {
+      await logout();
+    } catch (err) {
+      console.error('Dashboard logout failed:', err);
+    } finally {
+      setIsLoggingOut(false);
+      navigate('/login', { replace: true });
+    }
+  };
 
   useEffect(() => {
     if (prevPageRef.current === null) prevPageRef.current = initial.page;
@@ -534,6 +552,15 @@ export default function Dashboard() {
           </button>
           <button className="dash-action-btn" onClick={() => navigate('/refunds')} type="button">
             <i className="bi bi-arrow-repeat" /> Refunds
+          </button>
+          <button
+            className="dash-action-btn danger"
+            onClick={handleLogout}
+            type="button"
+            disabled={isLoggingOut}
+          >
+            <i className={`bi ${isLoggingOut ? 'bi-arrow-repeat spin' : 'bi-box-arrow-right'}`} />
+            {isLoggingOut ? 'Logging out…' : 'Logout'}
           </button>
         </div>
 

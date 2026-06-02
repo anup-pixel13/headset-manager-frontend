@@ -166,6 +166,28 @@
   font-weight:700;
   cursor:pointer;
 }
+.dash-action-btn .spin {
+  animation: dashSpin 0.8s linear infinite;
+}
+.dash-action-btn.danger {
+  background: #fff;
+  color: #dc3545;
+  border: 2px solid #dc3545;
+}
+.dash-action-btn.danger:hover:not(:disabled) {
+  background: #dc3545;
+  color: #fff;
+  transform: translateY(-1px);
+  box-shadow: 0 8px 20px rgba(220, 53, 69, 0.35);
+}
+.dash-action-btn.danger:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(220, 53, 69, 0.25);
+}
+.dash-action-btn:disabled {
+  cursor: wait;
+  opacity: 0.85;
+}
 
 .dash-table-card {
   background: rgba(255,255,255,0.95);
