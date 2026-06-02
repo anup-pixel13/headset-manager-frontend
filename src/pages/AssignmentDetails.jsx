@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { getAssignmentById } from '../services/assignmentService';
 import { formatHeadsetType, formatBrandName } from '../utils/headsetFormat';
@@ -12,13 +12,6 @@ function fmtDate(d) {
 
 function isValidPositiveInt(value) {
   return Number.isInteger(value) && value > 0;
-}
-
-function assignmentKindMeta(kind) {
-  const k = String(kind || '').toLowerCase();
-  if (k === 'temp_replacement') return { label: 'TEMP', tone: 'warn' };
-  if (k === 'permanent') return { label: 'PERM', tone: 'ok' };
-  return { label: kind || '—', tone: 'info' };
 }
 
 export default function AssignmentDetails() {
@@ -61,8 +54,6 @@ export default function AssignmentDetails() {
     }, 0);
     return () => clearTimeout(timer);
   }, [loadAssignment]);
-
-  const kindMeta = useMemo(() => assignmentKindMeta(a?.assignmentKind), [a?.assignmentKind]);
 
   return (
     <div className="ad-container">
@@ -130,13 +121,6 @@ export default function AssignmentDetails() {
                   <div>
                     <span className="ad-field-label">Status:</span>{' '}
                     <span className={`ad-pill ${a.isActive ? 'ok' : 'bad'}`}>{a.isActive ? 'Active' : 'Inactive'}</span>
-                  </div>
-                  <div>
-                    <span className="ad-field-label">Verification:</span>{' '}
-                    <span className={`ad-pill ${a.isVerified ? 'ok' : 'warn'}`}>{a.isVerified ? 'Verified' : 'Pending'}</span>
-                  </div>
-                  <div>
-                    <span className="ad-field-label">Kind:</span> <span className={`ad-pill ${kindMeta.tone}`}>{kindMeta.label}</span>
                   </div>
                   <div><span className="ad-field-label">Assigned:</span> {fmtDate(a.assignmentDate)}</div>
                   <div><span className="ad-field-label">Returned:</span> {fmtDate(a.returnDate)}</div>

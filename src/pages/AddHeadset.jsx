@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 import { addHeadset, getHeadsetBrands } from '../services/headsetService';
@@ -25,6 +25,7 @@ const HEADSET_TYPE_OPTIONS = [
 export default function AddHeadset() {
   const navigate = useNavigate();
   const { isAdmin } = useAuth();
+  const messageRef = useRef(null);
 
 
   const [brands, setBrands] = useState([]);
@@ -47,6 +48,15 @@ export default function AddHeadset() {
   const [preview2, setPreview2] = useState('');
 
   const [message, setMessage] = useState({ type: '', text: '' });
+
+  const focusMessage = () => {
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        messageRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        messageRef.current?.focus({ preventScroll: true });
+      });
+    });
+  };
 
   useEffect(() => {
     if (!isAdmin) navigate('/dashboard', { replace: true });
@@ -141,6 +151,7 @@ export default function AddHeadset() {
 
       const res = await addHeadset(fd);
       setMessage({ type: 'success', text: res.data?.message || 'Headset added successfully.' });
+      focusMessage();
 
       // reset
       setForm({
@@ -159,6 +170,7 @@ export default function AddHeadset() {
         type: 'error',
         text: e?.response?.data?.message || 'Failed to add headset.',
       });
+      focusMessage();
     } finally {
       setSubmitting(false);
     }
@@ -188,7 +200,13 @@ export default function AddHeadset() {
         ) : (
           <>
             {message.text && (
-              <div className={`ah-alert ${message.type}`}>
+              <div
+                ref={messageRef}
+                tabIndex={-1}
+                role="alert"
+                aria-live="assertive"
+                className={`ah-alert ${message.type}`}
+              >
                 <i className={`bi ${message.type === 'success' ? 'bi-check-circle-fill' : 'bi-exclamation-triangle-fill'}`} />
                 <span>{message.text}</span>
               </div>
