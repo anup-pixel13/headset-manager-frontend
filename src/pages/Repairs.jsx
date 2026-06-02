@@ -749,7 +749,7 @@ export default function Repairs() {
                 currentPage={page}
                 totalPages={totalPages}
                 onPageChange={(targetPage, anchor) => {
-                    void anchor;
+                  void anchor;
                   isUserPageChangeRef.current = true;
                   setPage(targetPage);
                 }}
@@ -836,13 +836,18 @@ export default function Repairs() {
                           <SearchableSelect
                             value={selectedHeadsetId}
                             onChange={setSelectedHeadsetId}
-                            placeholder="Type headset # to search (damaged/repair)..."
-                            minChars={1}
+                            placeholder="Click or type headset # to search (damaged/repair)..."
+                            minChars={0}
+                            debounceMs={200}
+                            noResultsText="No damaged/repair headsets found"
+                            loadingText="Loading headsets..."
                             onSearch={async (q) => {
                               const rows = await searchDamagedOrRepairHeadsets({
                                 q,
                                 brand_group: lotDetail.brandGroup,
+                                limit: 20,
                               });
+
                               return rows.map((h) => ({
                                 value: String(h.id),
                                 label: `${h.headsetNumber} • ${h.status} • ${h.headsetType}`,
