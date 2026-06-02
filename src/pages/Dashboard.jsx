@@ -73,6 +73,7 @@ export default function Dashboard() {
   const isUserPageChangeRef = useRef(false);
   const didFilterOnceRef = useRef(false);
   const lastKeyRef = useRef('');
+  const isMountedRef = useRef(true);
 
   const tableCardRef = useRef(null);
 
@@ -120,10 +121,16 @@ export default function Dashboard() {
     } catch (err) {
       console.error('Dashboard logout failed:', err);
     } finally {
-      setIsLoggingOut(false);
-      navigate('/login', { replace: true });
+      if (isMountedRef.current) {
+        setIsLoggingOut(false);
+        navigate('/login', { replace: true });
+      }
     }
   };
+
+  useEffect(() => () => {
+    isMountedRef.current = false;
+  }, []);
 
   useEffect(() => {
     if (prevPageRef.current === null) prevPageRef.current = initial.page;
