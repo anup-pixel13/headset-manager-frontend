@@ -89,7 +89,6 @@ export default function PendingActions() {
         idStatus: searchParams.get('idStatus') || DEFAULT_ID_STATUS,
       },
     };
-    // Read once on mount to seed initial tab/query state from URL.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -116,7 +115,6 @@ export default function PendingActions() {
   const debouncedSigSearch = useDebouncedValue(sigSearch, 300);
   const debouncedIdSearch = useDebouncedValue(idSearch, 300);
 
-  // modal state
   const [showModal, setShowModal] = useState(false);
   const [saving, setSaving] = useState(false);
   const [selected, setSelected] = useState(null);
@@ -147,9 +145,9 @@ export default function PendingActions() {
     managerName: r.managerName ?? r.manager_name ?? '',
   });
 
-  const isPermanent = (empId) => /^AIPL\d{4,5}$/i.test(String(empId || '').trim());
+  const isPermanent = (empId) => /^AIPL\d{1,5}$/i.test(String(empId || '').trim());
+  const isTemporary = (empId) => /^TRG\d{1,5}$/i.test(String(empId || '').trim());
 
-  // “best guess current id”
   const getCurrentId = (row) => String(row?.employeeId || row?.tempEmployeeId || '').trim();
 
   const load = async () => {
@@ -163,7 +161,6 @@ export default function PendingActions() {
       const raw = idsRes.data?.data?.assignments || [];
       const normalized = raw.map(normalizePendingIdRow);
 
-      // keep frontend filter as extra safety
       const stillPending = normalized.filter((r) => !isPermanent(r.employeeId));
       setPendingIds(stillPending);
     } catch (e) {
@@ -182,7 +179,6 @@ export default function PendingActions() {
   }, [authLoading, isAdmin, navigate]);
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -308,11 +304,8 @@ export default function PendingActions() {
   const openUpdateModal = (row) => {
     const n = normalizePendingIdRow(row);
     setSelected(n);
-
-    // ✅ Prefill with existing ID if present (helps correct invalid IDs quickly)
     const current = getCurrentId(n);
     setNewEmpId(current);
-
     setShowModal(true);
     setMessage({ type: '', text: '' });
   };
@@ -334,10 +327,10 @@ export default function PendingActions() {
       return;
     }
 
-    if (!/^AIPL\d{4,5}$/.test(clean)) {
+    if (!/^AIPL\d{1,5}$/.test(clean)) {
       setMessage({
         type: 'error',
-        text: 'Permanent Employee ID must be like AIPL1234 (4-5 digits).',
+        text: 'Permanent Employee ID must be like AIPL1 to AIPL99999.',
       });
       return;
     }
@@ -397,14 +390,7 @@ export default function PendingActions() {
       if (sigMissingFilter !== DEFAULT_SIG_MISSING && !a?.missing?.[sigMissingFilter]) return false;
 
       if (!q) return true;
-      const hay = [
-        a.id,
-        a.agentName,
-        a.employeeId,
-        a.headsetNumber,
-        a.tlName,
-        a.managerName,
-      ]
+      const hay = [a.id, a.agentName, a.employeeId, a.headsetNumber, a.tlName, a.managerName]
         .map((v) => String(v || '').toLowerCase())
         .join(' ');
       return hay.includes(q);
@@ -856,8 +842,8 @@ export default function PendingActions() {
 
                   {modalCurrentId && !modalCurrentIdIsPermanent && (
                     <div className="pa-alert dash-table-alert warn" style={{ marginTop: 10 }}>
-                      Current ID "<b>{modalCurrentId}</b>" is not a valid permanent ID. Please correct it to <b>AIPL####</b>{' '}
-                      (4–5 digits).
+                      Current ID "<b>{modalCurrentId}</b>" is not a valid permanent ID. Please correct it to <b>AIPL1</b> to{' '}
+                      <b>AIPL99999</b> (1–5 digits).
                     </div>
                   )}
 
@@ -866,7 +852,7 @@ export default function PendingActions() {
                     className="pa-modal-input"
                     value={newEmpId}
                     onChange={(e) => setNewEmpId(e.target.value)}
-                    placeholder="e.g. AIPL1234"
+                    placeholder="e.g. AIPL1"
                   />
 
                   <div className="pa-modal-actions">

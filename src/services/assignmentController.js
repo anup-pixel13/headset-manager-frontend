@@ -774,7 +774,7 @@ export const getPendingPermanentIds = async (req, res) => {
         AND u.is_active = 1
         AND (
           COALESCE(NULLIF(TRIM(u.employee_id), ''), NULLIF(TRIM(u.temp_employee_id), '')) IS NULL
-          OR COALESCE(NULLIF(TRIM(u.employee_id), ''), NULLIF(TRIM(u.temp_employee_id), '')) NOT REGEXP '^AIPL[0-9]{4,5}$'
+          OR COALESCE(NULLIF(TRIM(u.employee_id), ''), NULLIF(TRIM(u.temp_employee_id), '')) NOT REGEXP '^AIPL[0-9]{1,5}$'
         )
       ORDER BY ha.assignment_date DESC`
     );
